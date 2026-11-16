@@ -1,0 +1,11 @@
+simplescreenshot (1.0.0-1) unstable; urgency=medium
+
+  * 1.0.0 public release.
+  * OCR: bundled RapidOCR python plugin (assets/plugins/ocr_rapidocr.py)
+    with automatic tesseract fallback; startup hint when RapidOCR is not
+    installed (dismissable, stored as ocr.rapidocrHintHidden). Custom OCR
+    plugin path can be set via config.json (ocr.plugin).
+  * Delay-capture dialog is now a WM-managed window: draggable by its
+    title area and coverable by other windows (no longer always-on-top).
+
+ -- xinwf <xinwf18@gmail.com>  Tue, 17 Nov 2026 04:20:00 +0800

@@ -1,0 +1,12 @@
+# Build outputs (development / deb packaging / gcc-9 verification)
+build/
+build-deb/
+build-gcc*/
+*.deb
+
+# CMake / editor
+CMakeLists.txt.user
+compile_commands.json
+
+# Python plugin runtime
+__pycache__/

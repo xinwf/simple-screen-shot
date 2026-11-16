@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=SimpleScreenShot
+GenericName=Screenshot Tool
+Comment=Capture, annotate, pin, OCR and record the screen
+Comment[zh_CN]=截图、标注、贴图、OCR 识别与录屏
+Exec=screencapture
+Icon=simplescreenshot
+Terminal=false
+Categories=Utility;Graphics;RasterGraphics;
+Keywords=screenshot;capture;snip;ocr;record;
+StartupNotify=false
+StartupWMClass=screencapture

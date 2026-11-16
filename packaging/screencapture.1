@@ -1,0 +1,53 @@
+.TH SCREENCAPTURE 1 "November 2026" "screencapture 1.0.0" "User Commands"
+.SH NAME
+screencapture \- lightweight X11 screenshot tool (SimpleScreenShot)
+.SH SYNOPSIS
+.B screencapture
+.RI [ options ]
+.SH DESCRIPTION
+.B screencapture
+captures screen regions on X11 desktops (GTK3 frontend). By default it
+starts a system tray icon and immediately opens a full-screen capture
+overlay: drag to select a region, then annotate (arrow, rectangle,
+ellipse, line, text, mosaic, step numbering), pin the result to the
+desktop, copy it to the clipboard, save it, stitch a long screenshot,
+scan QR codes, run OCR text recognition or record the screen to a
+video.
+.SH OPTIONS
+.TP
+.B \-\-auto\-quit
+One-shot mode: open the capture overlay without the tray icon and exit
+the application once the capture window is closed.
+.TP
+.BI \-\-enter\  mode
+Startup mode. Use
+.B tray
+to start minimized to the system tray without opening a capture
+overlay.
+.TP
+.BI \-\-lang\  code
+UI language override; for example
+.BR zh\-CN ", " en\-US ", " zh\-TW ", " ja\-JP ", " ru\-RU " or " id\-ID .
+.SH FILES
+.TP
+.I /usr/share/simplescreenshot/assets/
+System-installed runtime resources (icon font, logo, translations).
+.TP
+.I ~/.config/screencapture/
+Per-user configuration and data (config.json).
+.SH NOTES
+The screen-recording feature requires
+.BR ffmpeg (1)
+and the OCR feature requires
+.BR tesseract (1)
+with the desired language packs (the package recommends
+.IR tesseract\-ocr\-chi\-sim ).
+Images are also persisted through
+.BR xclip (1)
+when no clipboard manager is running.
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR tesseract (1),
+.BR xclip (1)
+.SH AUTHOR
+xinwf <xinwf18@gmail.com>

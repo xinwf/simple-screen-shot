@@ -1,0 +1,30 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SimpleScreenShot
+
+Files: *
+Copyright: 2026 xinwf <xinwf18@gmail.com>
+License: proprietary
+ This package is built from the SimpleScreenShot source tree, which does
+ not yet declare an upstream license text; all rights reserved by the
+ copyright holder.
+
+Files: third_party/quirc/*
+Copyright: 2010-2012 Daniel Beer <dlbeer@gmail.com>
+License: ISC
+ Permission to use, copy, modify, and/or distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+
+Files: third_party/cgif/*
+Copyright: cgif upstream authors
+License: MIT
+ cgif is MIT-licensed upstream (https://github.com/dloebl/cgif). The
+ bundled copy carries no license header; see the upstream repository
+ for the full MIT license text.
+
+Files: third_party/json/json.hpp
+Copyright: 2013-2019 Niels Lohmann <http://nlohmann.me>
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software to deal in the Software without restriction,
+ subject to the MIT license terms included in the source file.
