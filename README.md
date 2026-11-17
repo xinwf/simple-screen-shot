@@ -8,6 +8,7 @@
 ## 目录
 
 - [功能特性](#功能特性)
+- [功能一览](#功能一览)
 - [功能使用说明](#功能使用说明)
   - [1. 基础截图与标注](#1-基础截图与标注)
   - [2. 长截图（滚动拼接截图）](#2-长截图滚动拼接截图)
@@ -35,6 +36,27 @@
 - **高清录屏**：自选区域录制 MP4（带音频）与高清 GIF（双通道全局调色板优化）。
 - **延时截屏**：托盘 3/5/10 秒快捷触发，启动器智能定位鼠标所在屏幕正中置顶。
 - **桌面兼容**：原生适配 Ubuntu 20.04/22.04/24.04（GNOME AppIndicator）与 Linux Mint/MATE/XFCE 等传统桌面；Wayland 会话经 XWayland 运行（详见[常见问题排查](#常见问题排查)）。
+
+---
+
+## 功能一览
+
+以下均为程序真实运行的截图（截图内容由本程序自身截取）：
+
+![框选后直接标注：箭头指向、连续序号、马赛克隐私遮挡、矩形重点框，回车即复制](docs/screenshots/annotate.png)
+
+| | |
+| :---: | :---: |
+| **标注工具箱**：图标工具条随框选出现，二级色板与粗细滑条即点即用 | **桌面贴图**：一键钉住悬浮于任意窗口之上，滚轮无级缩放、随意拖动 |
+| ![](docs/screenshots/annotate-toolbar.png) | ![](docs/screenshots/pin.png) |
+| **文字识别（OCR）**：后台异步识别不卡界面，文本自动进剪贴板 | **二维码识别**：内置 quirc 解码引擎，零依赖离线秒解 |
+| ![](docs/screenshots/ocr.png) | ![](docs/screenshots/qrcode.png) |
+
+**长截图**：框选滚动区域后程序自动滚动逐帧对齐拼接，无缝得到完整长图（下图为实际拼接输出，960 × 1721）：
+
+<p align="center">
+  <img src="docs/screenshots/longshot.png" width="380" alt="长截图拼接输出（960×1721）">
+</p>
 
 ---
 
@@ -116,14 +138,14 @@
 | **录屏 (MP4/GIF)** | `ffmpeg` | 外部推荐依赖 | 缺少时点击录屏会弹窗友好提示安装命令，不影响常规截图。 |
 | **音频录制** | `pipewire` 或 `pulseaudio` | 系统音频服务 | 自动检测系统音频后端（`pw-cat` 或 `parecord`），无音频源时自动以纯静音画面录制。 |
 | **OCR 兜底引擎** | `tesseract-ocr`<br>`tesseract-ocr-chi-sim` | 外部推荐依赖 | 系统默认中英文字符识别，完全离线运行。 |
-| **OCR 推荐引擎** | `rapidocr[onnxruntime]` | Python 可选库 | 识别精度与排版表现显著优于 tesseract；首次使用需模型缓存，详见 [OCR 说明](assets/plugins/README.md)。 |
+| **OCR 推荐引擎** | `rapidocr`<br>`onnxruntime` | Python 可选库 | 识别精度与排版表现显著优于 tesseract；首次使用需模型缓存，详见 [OCR 说明](assets/plugins/README.md)。 |
 | **剪贴板持久化** | `xclip` | 外部推荐依赖 | 当桌面缺少常驻剪贴板管理器时，确保程序退出后复制的图像依然有效。 |
 | **系统托盘 (Ubuntu)** | `gnome-shell-extension-appindicator`<br>`libappindicator3-1` | 桌面托盘服务 | Ubuntu GNOME 桌面展示顶部托盘必需。 |
 
 > **一键安装推荐依赖（Ubuntu / Debian）**：
 > ```bash
 > sudo apt install ffmpeg xclip tesseract-ocr tesseract-ocr-chi-sim libappindicator3-1
-> pip3 install rapidocr[onnxruntime]  # 可选：安装高精度中文 OCR
+> pip3 install rapidocr onnxruntime  # 可选：安装高精度中文 OCR
 > ```
 
 ---
