@@ -37,6 +37,11 @@ add_executable(screencapture
 
 target_include_directories(screencapture PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+# Vendored third-party headers are pulled in as system headers (-isystem) so
+# warnings inside them (e.g. nlohmann/json's std::is_pod deprecation on GCC 13)
+# are not reported against our own translation units.
+target_include_directories(screencapture SYSTEM PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/quirc
 )
@@ -88,10 +93,8 @@ add_executable(sc_core_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/config_manager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/i18n.cpp
 )
-target_include_directories(sc_core_tests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
-)
+target_include_directories(sc_core_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(sc_core_tests SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 target_compile_options(sc_core_tests PRIVATE -Wall -Wextra -Wno-unused-parameter -UNDEBUG)
 target_link_libraries(sc_core_tests PRIVATE
     PkgConfig::GIO

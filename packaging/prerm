@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 
-# Stop any running screencapture instances before package upgrade/removal
-killall screencapture 2>/dev/null || true
+# Stop any running screencapture instances before package upgrade/removal.
+# pkill -x (exact process-name match) is the lintian-recommended replacement
+# for killall in maintainer scripts.
+pkill -x screencapture 2>/dev/null || true
 
 exit 0
