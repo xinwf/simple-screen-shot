@@ -1,7 +1,7 @@
 # SimpleScreenShot
 
 轻量级 Linux X11 截图与录屏工具，采用现代 C++20 实现（GTK3 + Cairo + Pango），单进程架构、开箱即用、无庞大运行时依赖。  
-当前版本：**1.0.0**。
+当前版本：**1.0.3**。
 
 ---
 
@@ -123,17 +123,40 @@
 
 ## 桌面环境与系统托盘说明
 
-本工具采用双轨制托盘架构（AppIndicator 原生协议 + GtkStatusIcon 兼容协议）：
+本工具采用双轨制托盘实现：传统 **XEmbed（GtkStatusIcon）** 与 **StatusNotifierItem（AppIndicator）**。程序启动时会先探测面板是否提供 XEmbed 托盘宿主（`_NET_SYSTEM_TRAY_S<n>` selection 的持有者）：
 
-1. **Ubuntu 20.04 / 22.04 / 24.04（标准 GNOME 桌面）**：
-   - GNOME 官方在 GNOME 3.26+ 彻底移除了传统 XEmbed 托盘协议，原生通过 **AppIndicator / StatusNotifierItem** 协议展示托盘。
-   - 本工具优先通过动态链接加载 `libappindicator3.so.1`，直接将图标注入 Ubuntu 右上角系统顶栏。
-   - **检查要点**：请确保系统自带的扩展处于启用状态：
-     ```bash
-     gnome-extensions enable ubuntu-appindicators@ubuntu.com
-     ```
-2. **Linux Mint（Cinnamon / MATE / XFCE）及其他桌面**：
-   - Linux Mint 等环境面板天然支持 XEmbed 及 StatusNotifierItem，启动后开箱即用，托盘图标正常显示于右下角通知区域。
+- **有宿主**（MATE / XFCE / Cinnamon 等面板启用了“通知区域”插件）→ 使用 GtkStatusIcon；
+- **无宿主**（GNOME Shell）→ 动态加载 `libappindicator3` 走 AppIndicator 协议。
+
+### 各桌面下的鼠标行为
+
+| 桌面环境 | 托盘实现 | 左键单击 | 中键单击 | 右键单击 |
+| :--- | :--- | :--- | :--- | :--- |
+| Ubuntu GNOME（20.04 / 22.04 / 24.04） | AppIndicator | 打开菜单 | **直接截屏** | 打开菜单 |
+| Linux Mint / MATE / XFCE（通知区域已启用） | GtkStatusIcon | **直接截屏** | 无响应 | 打开菜单 |
+
+### 为什么 GNOME 下左键不能直接截屏
+
+这是 GNOME Shell 的限制，不是程序行为异常：
+
+1. **GNOME 没有传统托盘**：GNOME 3.26 起移除了 XEmbed 托盘协议，`GtkStatusIcon` 创建的图标找不到宿主面板，屏幕上不会显示；
+2. **托盘由扩展提供**：Ubuntu 通过 `ubuntu-appindicators@ubuntu.com` 扩展显示托盘，该扩展只支持 StatusNotifierItem + dbusmenu 协议；
+3. **点击行为由 shell 决定**：扩展对左键、右键的处理都是“展开菜单”，只有中键会回调应用（`SecondaryActivate`）。应用进程根本收不到左键事件；
+4. **库层无主键回调**：程序通过 `libappindicator3` 把自己注册到该扩展，而 libappindicator 只提供“中键激活目标”接口，没有主键激活回调。
+
+因此 GNOME 下把“一键直接截屏”绑定在中键上；左键点击图标后菜单的第一项即为“截图”。若需要真正的左键一键截屏，也可直接使用全局快捷键（默认 `Ctrl + Alt + A`）。
+
+### 常见问题排查
+
+1. **GNOME 下托盘图标不显示**
+   GNOME Shell 本身不内建托盘，必须同时满足：扩展已启用 + `libappindicator3-1`（或 `libayatana-appindicator3-1`）已安装。缺任何一个图标都会消失：
+   ```bash
+   gnome-extensions enable ubuntu-appindicators@ubuntu.com
+   dpkg -l | grep -iE "appindicator|ayatana"
+   ```
+2. **GNOME 下中键没有反应**：同上，先确认扩展与库都存在；扩展未启用时中键回调也不会发生。
+3. **MATE / XFCE 下左键是弹菜单而不是截屏**：说明面板没有启用“通知区域 / 系统托盘”插件，程序探测不到 XEmbed 宿主，只能退回 AppIndicator。在面板中添加该插件后重启程序即可恢复左键截屏。
+4. **不要卸载 libappindicator**：卸载后 GNOME 下既没有 XEmbed 宿主、也没有 SNI 注册能力，托盘图标会彻底消失（其他依赖它的程序同样受影响）。
 
 ---
 
@@ -155,12 +178,12 @@ cmake --build build -j$(nproc)
 
 ### 3. 一键生成 Debian 安装包 (.deb)
 ```bash
-./build-deb.sh            # 增量编译并打包生成 build-deb/simplescreenshot_1.0.0-2_amd64.deb
+./build-deb.sh            # 增量编译并打包生成 build-deb/simplescreenshot_1.0.3-1_amd64.deb
 ./build-deb.sh --clean    # 清空构建目录后全量重新打包
 ```
 安装生成的 deb 包：
 ```bash
-sudo dpkg -i build-deb/simplescreenshot_1.0.0-2_amd64.deb
+sudo dpkg -i build-deb/simplescreenshot_1.0.3-1_amd64.deb
 ```
 
 ---

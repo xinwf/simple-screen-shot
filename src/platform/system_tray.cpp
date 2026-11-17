@@ -1,6 +1,9 @@
 #include "screencapture/platform/system_tray.h"
 #include "screencapture/core/i18n.h"
 #include <gtk/gtk.h>
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#include <cstdio>
 #include <dlfcn.h>
 #include <filesystem>
 #include <functional>
@@ -63,6 +66,19 @@ void onDelayedItem(GtkMenuItem*, gpointer data) {
 
 void freeMenuActCtx(gpointer data, GClosure*) {
     delete static_cast<MenuActCtx*>(data);
+}
+
+// Is a legacy XEmbed tray host present? Panels such as xfce4-panel, mate-panel
+// and cinnamon own the _NET_SYSTEM_TRAY_S<screen> selection. GNOME Shell
+// dropped XEmbed support in 3.26 and owns nothing, so there the
+// StatusNotifierItem (appindicator) path must be used instead.
+bool xembedTrayHostAvailable() {
+    Display* dpy = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+    if (!dpy) return false;
+    char atomName[64];
+    std::snprintf(atomName, sizeof(atomName), "_NET_SYSTEM_TRAY_S%d", DefaultScreen(dpy));
+    Atom sel = XInternAtom(dpy, atomName, False);
+    return sel != None && XGetSelectionOwner(dpy, sel) != None;
 }
 
 // Function pointer signatures for libappindicator / libayatana-appindicator
@@ -168,6 +184,13 @@ void SystemTray::init(const std::string& iconPath) {
     data->menu = buildTrayMenu(this);
     g_object_ref_sink(data->menu);
 
+    // Prefer the legacy XEmbed icon when the panel really hosts a systray there:
+    // left click then activates the app (capture) and right click opens the
+    // menu, which libappindicator cannot offer (it exposes no primary-activate
+    // callback). GNOME Shell owns no XEmbed selection, so it keeps using
+    // appindicator below.
+    const bool useXEmbedTray = xembedTrayHostAvailable();
+
     // Attempt to load libappindicator / libayatana-appindicator via dlopen.
     // Modern Linux desktop environments (Ubuntu GNOME 3.36+, Debian, Fedora, KDE)
     // rely on StatusNotifierItem over DBus, since GNOME dropped legacy XEmbed
@@ -179,9 +202,11 @@ void SystemTray::init(const std::string& iconPath) {
         "libayatana-appindicator3.so"
     };
     void* handle = nullptr;
-    for (const char* lib : libs) {
-        handle = dlopen(lib, RTLD_LAZY);
-        if (handle) break;
+    if (!useXEmbedTray) {
+        for (const char* lib : libs) {
+            handle = dlopen(lib, RTLD_LAZY);
+            if (handle) break;
+        }
     }
 
     if (handle) {

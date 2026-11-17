@@ -1,3 +1,22 @@
+simplescreenshot (1.0.3-1) unstable; urgency=medium
+
+  * Long screenshot: capture a frame only once the pixels have settled
+    (two identical snapshots in a row), so frames grabbed mid smooth-scroll
+    no longer produce duplicated ("ghost") bands.
+  * Long screenshot: reject frames whose best match is not a real overlap
+    instead of painting a misaligned band into the result.
+  * Tray: dismiss the popup menu and let the compositor repaint before the
+    capture overlay starts, so the menu no longer ends up in screenshots
+    taken from the tray menu (capture and delayed capture items).
+  * Tray: detect a legacy XEmbed systray host (_NET_SYSTEM_TRAY_S<n>) at
+    startup and prefer GtkStatusIcon there — left click captures, right
+    click opens the menu. GNOME Shell owns no such selection and keeps
+    using the AppIndicator path, where middle click captures instead.
+  * About panel: show the project repository URL below the author line.
+  * Version 1.0.3.
+
+ -- xinwf <xinwf18@gmail.com>  Tue, 17 Nov 2026 17:30:00 +0800
+
 simplescreenshot (1.0.0-2) unstable; urgency=medium
 
   * Screen recording rework:

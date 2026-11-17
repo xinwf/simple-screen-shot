@@ -422,11 +422,18 @@ void SettingsWindow::rebuildUI() {
     authorLabel->setPosition(20.f, y4 + 22.f);
     authorLabel->setSize(420.f, 20.f);
 
+    auto* repoLabel = body->makeChild<sc::ui::Label>();
+    repoLabel->setText(i18n->get("about.repo") + " " + "https://github.com/xinwf/simple-screen-shot");
+    repoLabel->setFontSize(12.f);
+    repoLabel->setColor(0x2F7FD9FF);
+    repoLabel->setPosition(20.f, y4 + 44.f);
+    repoLabel->setSize(420.f, 20.f);
+
     auto* tech = body->makeChild<sc::ui::Label>();
     tech->setText("GTK3 + Cairo + Pango + X11 · PulseAudio / PipeWire");
     tech->setFontSize(11.f);
     tech->setColor(0x999999FF);
-    tech->setPosition(20.f, y4 + 44.f);
+    tech->setPosition(20.f, y4 + 66.f);
     tech->setSize(420.f, 20.f);
 
     layout();
