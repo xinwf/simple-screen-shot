@@ -17,6 +17,10 @@ jobs:
     # Ubuntu 20.04 与 Mint 22.3(Ubuntu 24.04 基线)。
     runs-on: ubuntu-24.04
     container: ubuntu:20.04
+    # 安装 tzdata 等包会弹交互式时区选择,CI 无终端会永久卡住,
+    # 强制 debconf 非交互(按默认值 UTC 安装)
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Install toolchain
         run: |

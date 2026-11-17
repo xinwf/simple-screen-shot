@@ -8,6 +8,10 @@ on:
 
 jobs:
   build-and-test:
+    # 容器里安装 tzdata 等包会弹交互式时区选择,CI 无终端会永久卡住,
+    # 强制 debconf 非交互(按默认值 UTC 安装)
+    env:
+      DEBIAN_FRONTEND: noninteractive
     # 矩阵对应发布基线(双平台可编译是硬要求):
     #  - ubuntu:20.04 容器(gcc9/cmake3.16):最老支持平台,发布 deb 在同环境构建
     #  - ubuntu-24.04 托管 runner:与 Mint 22.3 同为 Ubuntu 24.04 (noble) 基线
