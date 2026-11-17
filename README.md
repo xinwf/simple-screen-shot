@@ -1,122 +1,183 @@
 # SimpleScreenShot
 
-轻量级 Linux X11 截图工具，纯 C++20 实现（GTK3 + Cairo + Pango），单进程、无重运行时依赖。
+轻量级 Linux X11 截图与录屏工具，采用现代 C++20 实现（GTK3 + Cairo + Pango），单进程架构、开箱即用、无庞大运行时依赖。  
 当前版本：**1.0.0**。
+
+---
+
+## 目录
+
+- [功能特性](#功能特性)
+- [功能使用说明](#功能使用说明)
+  - [1. 基础截图与标注](#1-基础截图与标注)
+  - [2. 长截图（滚动拼接截图）](#2-长截图滚动拼接截图)
+  - [3. 贴图（Pin 悬浮置顶）](#3-贴图pin-悬浮置顶)
+  - [4. 文字识别（OCR）](#4-文字识别ocr)
+  - [5. 二维码识别](#5-二维码识别)
+  - [6. 区域录屏与动图录制（MP4 / GIF）](#6-区域录屏与动图录制mp4--gif)
+  - [7. 延迟截图](#7-延迟截图)
+- [各个功能依赖说明](#各个功能依赖说明)
+- [桌面环境与系统托盘说明](#桌面环境与系统托盘说明)
+- [从源码编译与打包](#从源码编译与打包)
+- [配置文件指南](#配置文件指南)
+- [许可](#许可)
+
+---
 
 ## 功能特性
 
-- **截图**：全屏 / 多显示器区域截图，标注工具（箭头、矩形、椭圆、直线、文字、马赛克、序号标号）
-- **贴图**：截图钉在桌面置顶显示
-- **长截图**：滚动窗口拼接
-- **OCR 文字识别**：识别结果自动复制到剪贴板
-- **二维码识别**：选区二维码内容解析（内置 quirc 解码，无外部依赖）
-- **录屏**：区域录制 MP4 / GIF，可选录制系统声音与麦克风（PipeWire / PulseAudio 桌面均可）
-- **延迟截图**：托盘菜单 3 / 5 / 10 秒倒计时 + 弹窗自定义秒数
-- **托盘常驻**、单实例运行、全局快捷键（默认 `Ctrl+Alt+A`，可在配置修改）
-- 界面语言：简体中文 / English
+- **高效截图**：全屏 / 跨显示器自选区域截取，内置全套矢量标注工具。
+- **长截图**：单向智能滚动对齐拼接，鼠标移出选区自动完成。
+- **桌面贴图**：截图片段置顶固定在桌面任意位置，支持滚轮缩放与拖拽。
+- **文字识别（OCR）**：后台异步识别（不阻塞界面），结果自动拷贝至剪贴板。
+- **二维码解析**：内置轻量解码算法，零外部依赖一键复制解析文本。
+- **高清录屏**：自选区域录制 MP4（带音频）与高清 GIF（双通道全局调色板优化）。
+- **延时截屏**：托盘 3/5/10 秒快捷触发，启动器智能定位鼠标所在屏幕正中置顶。
+- **桌面兼容**：原生适配 Ubuntu 20.04/22.04/24.04（GNOME AppIndicator）与 Linux Mint/MATE/XFCE 等传统桌面。
 
-## 系统要求
+---
 
-- Linux + **X11** 桌面环境（GNOME、MATE 等已实测；暂不支持 Wayland）
-- 已在 **Ubuntu 20.04** 与 **Linux Mint 22.3** (Ubuntu 24.04 基座) 上实测编译、运行
+## 功能使用说明
 
-## 从源码编译
+### 1. 基础截图与标注
+- **启动截屏**：按全局快捷键（默认 `Ctrl + Alt + A`）或点击系统托盘菜单中的“截图”。
+- **选取区域**：在屏幕上拖拽鼠标选择需要截取的范围；四角和边缘带有控制手柄，支持微调选区尺寸。
+- **标注工具箱**：
+  - **几何图形**：矩形、圆形、箭头、直线（支持线条粗细调节与常用色板切换）。
+  - **画笔与文本**：自由涂鸦画笔，单行/多行文本标注（可调整字号与粗体/斜体）。
+  - **连续标号**：点击依次放置数字标记（`①`、`②`、`③`…），双击标记可随时修改数字。
+  - **隐私保护**：马赛克与模糊滤镜画笔，快速遮挡敏感密码或隐私信息。
+  - **撤销/重做**：支持 `Ctrl + Z` 快捷撤销以及逐级重做。
+- **快捷保存/复制**：
+  - `Enter` 或双击选区：将截图复制到剪贴板并退出截屏。
+  - `Ctrl + S`：打开保存对话框。
+  - `Esc`：放弃截屏并退出。
 
-### 编译依赖（Ubuntu / Debian 包名）
+### 2. 长截图（滚动拼接截图）
+适用于网页、文档列表、聊天记录等超长内容的纵向完整拼接：
+- **步骤 1**：在屏幕上拖选目标滚动窗口的可见可视区域，在底部浮动工具条中点击 **“长截图”** 图标。
+- **步骤 2（核心操作规则）**：
+  - **鼠标必须保持在截屏框内**：将鼠标指针置于选区内，平稳向下滚动鼠标滚轮（或触控板双指滑动），长截图引擎会自动检测画面位移并实时向下拼接。
+  - **移出停止截图**：当滚动到底部或已捕获足够内容时，**只需将鼠标指针移出选区边框外部**（或者按键盘 `Esc` 键 / 点击完成按钮），程序会立即停止截屏，自动消除边缘缝隙并呈现完整的拼接长图。
+- **技术细节**：拼接引擎内置 2px 边界内缩算法，彻底杜绝选框边框线条重复堆叠；匹配算法采用局部特征差分与早期退出优化，速度极快且不卡顿。
 
+### 3. 贴图（Pin 悬浮置顶）
+适用于比对资料、对照代码或固定临时参考图：
+- **钉在桌面**：框选截图后，点击工具栏中的 **“钉住”** 按钮。
+- **操作技巧**：
+  - **移动**：鼠标左键按住贴图任意位置即可拖动到屏幕任意位置。
+  - **缩放**：在贴图上方滑动鼠标滚轮，可无级等比例缩放图片尺寸。
+  - **关闭**：直接在贴图上**鼠标双击**，或按 `Esc` 键快速关闭；右键点击贴图可弹出菜单选择保存或复制。
+
+### 4. 文字识别（OCR）
+- 框选包含文字的区域，点击工具条中的 **“文字识别”** 图标。
+- 程序会立刻收起截屏遮罩，在**后台工作线程**异步调用 OCR 引擎（UI 完全不卡顿）。
+- 识别完成后，文本将**自动写入系统剪贴板**，同时弹出预览弹窗展示识别结果。
+
+### 5. 二维码识别
+- 框选包含二维码的屏幕选区，点击 **“二维码识别”** 图标。
+- 程序内置轻量级纯 C++ 解码引擎，无需网络即可秒级解析出二维码原始内容，并支持一键拷贝到剪贴板。
+
+### 6. 区域录屏与动图录制（MP4 / GIF）
+点击工具条中的 **“录屏”** 图标展开录制控制面板：
+- **格式选择**：
+  - **MP4 视频**：最长支持录制 120 分钟，编码为高兼容性 H.264 视频。
+  - **GIF 动图**：最长支持录制 6 分钟，采用两阶段渲染管线（先录制高质量临时帧流，停止时调用工业级调色板聚类与透明区域差分优化），生成的动图画质细腻且文件体积紧凑。
+- **音频捕获**：
+  - 可独立勾选是否录制 **“扬声器（系统声音）”** 与 **“麦克风”**；两者同时开启时程序会自动混音。
+  - 完美兼容现代 Linux 的 **PipeWire**（通过 `pw-cat`）与传统 **PulseAudio**（通过 `parecord`）音频架构。
+- **完成录制**：点击停止按钮后，程序会自动合并音视频或导出 GIF，并弹出保存对话框。
+
+### 7. 延迟截图
+适用于需要捕获弹出菜单、悬浮提示（Tooltip）等一触即隐的界面：
+- **托盘菜单快捷延时**：右键点击系统托盘图标，可直接选取 **“延迟 3 秒”**、**“延迟 5 秒”** 或 **“延迟 10 秒”**，随后屏幕静默倒计时，倒计时结束后自动拉起截屏。
+- **自定义启动器**：点击托盘“自定义延迟…”或从应用菜单打开 SimpleScreenShot，可在弹出的启动窗口中自由增减秒数。
+- **置顶与定位**：启动窗口采用 Topmost 模式并具备防抢焦点穿透能力，自动吸附到当前鼠标所在的显示器正中心，绝不被前台浏览器或终端遮挡。
+
+---
+
+## 各个功能依赖说明
+
+程序设计遵循“渐进增强”原则，基础功能零外部依赖；高级多媒体功能依赖系统工具，deb 安装包已通过推荐依赖（`Recommends`）自动管理。
+
+| 功能模块 | 依赖组件 | 依赖性质 | 缺失时的表现与说明 |
+| :--- | :--- | :--- | :--- |
+| **基础截图 / 标注** | GTK3, Cairo, X11 | **系统级硬依赖** | 已内置在 deb 包硬依赖（Depends）中，装完即用。 |
+| **贴图 (Pin)** | GTK3, Cairo | **零外部依赖** | 纯内建实现，无需额外软件。 |
+| **长截图拼接** | 无 | **零外部依赖** | 纯 C++ 图像处理与差分拼接算法。 |
+| **二维码识别** | 内置 quirc | **零外部依赖** | 源码中内嵌编译，无需安装任何外部库。 |
+| **录屏 (MP4/GIF)** | `ffmpeg` | 外部推荐依赖 | 缺少时点击录屏会弹窗友好提示安装命令，不影响常规截图。 |
+| **音频录制** | `pipewire` 或 `pulseaudio` | 系统音频服务 | 自动检测系统音频后端（`pw-cat` 或 `parecord`），无音频源时自动以纯静音画面录制。 |
+| **OCR 兜底引擎** | `tesseract-ocr`<br>`tesseract-ocr-chi-sim` | 外部推荐依赖 | 系统默认中英文字符识别，完全离线运行。 |
+| **OCR 推荐引擎** | `rapidocr[onnxruntime]` | Python 可选库 | 识别精度与排版表现显著优于 tesseract；首次使用需模型缓存，详见 [OCR 说明](assets/plugins/README.md)。 |
+| **剪贴板持久化** | `xclip` | 外部推荐依赖 | 当桌面缺少常驻剪贴板管理器时，确保程序退出后复制的图像依然有效。 |
+| **系统托盘 (Ubuntu)** | `gnome-shell-extension-appindicator`<br>`libappindicator3-1` | 桌面托盘服务 | Ubuntu GNOME 桌面展示顶部托盘必需。 |
+
+> **一键安装推荐依赖（Ubuntu / Debian）**：
+> ```bash
+> sudo apt install ffmpeg xclip tesseract-ocr tesseract-ocr-chi-sim libappindicator3-1
+> pip3 install rapidocr[onnxruntime]  # 可选：安装高精度中文 OCR
+> ```
+
+---
+
+## 桌面环境与系统托盘说明
+
+本工具采用双轨制托盘架构（AppIndicator 原生协议 + GtkStatusIcon 兼容协议）：
+
+1. **Ubuntu 20.04 / 22.04 / 24.04（标准 GNOME 桌面）**：
+   - GNOME 官方在 GNOME 3.26+ 彻底移除了传统 XEmbed 托盘协议，原生通过 **AppIndicator / StatusNotifierItem** 协议展示托盘。
+   - 本工具优先通过动态链接加载 `libappindicator3.so.1`，直接将图标注入 Ubuntu 右上角系统顶栏。
+   - **检查要点**：请确保系统自带的扩展处于启用状态：
+     ```bash
+     gnome-extensions enable ubuntu-appindicators@ubuntu.com
+     ```
+2. **Linux Mint（Cinnamon / MATE / XFCE）及其他桌面**：
+   - Linux Mint 等环境面板天然支持 XEmbed 及 StatusNotifierItem，启动后开箱即用，托盘图标正常显示于右下角通知区域。
+
+---
+
+## 从源码编译与打包
+
+### 1. 编译依赖准备
 ```bash
 sudo apt install build-essential cmake pkg-config dpkg-dev \
     libgtk-3-dev libcairo2-dev libpango1.0-dev libfontconfig1-dev \
     libx11-dev libxext-dev libxtst-dev libxfixes-dev libglib2.0-dev
 ```
 
-- CMake ≥ 3.16，GCC ≥ 9（Ubuntu 20.04 默认的 gcc 9 即可，CMake 会自动使用 `-std=c++2a`）
-
-### 编译
-
+### 2. 编译可执行程序
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ./build/screencapture
 ```
 
-### Debian 打包
-
+### 3. 一键生成 Debian 安装包 (.deb)
 ```bash
-./build-deb.sh            # 生成 build-deb/simplescreenshot_<版本>_amd64.deb
-./build-deb.sh --clean    # 清理后全量重新打包
+./build-deb.sh            # 增量编译并打包生成 build-deb/simplescreenshot_1.0.0-2_amd64.deb
+./build-deb.sh --clean    # 清空构建目录后全量重新打包
 ```
-
-安装布局（FHS）：`/usr/bin/screencapture`、`/usr/share/simplescreenshot/assets/`、
-桌面入口 `/usr/share/applications/simplescreenshot.desktop`。
-
-## 运行时依赖
-
-### 系统库（deb 包已声明为硬依赖，装完即用）
-
-GTK3 / Cairo / Pango / X11 等共享库由 deb 按实际链接自动声明（`Depends`），
-`apt install ./simplescreenshot_*.deb` 即可完整安装程序本体，二维码识别
-内置解码器，无需任何额外依赖。
-
-### 功能级依赖（deb 均声明为推荐依赖 `Recommends`，不装不影响其他功能）
-
-各功能在使用时自行检查依赖，缺失时弹窗提示安装命令，不会静默失败或崩溃。
-
-| 依赖 | 用途 | 缺失时的表现 |
-|---|---|---|
-| `ffmpeg` | **录屏**（MP4/GIF，基于 x11grab；音频经 PipeWire / PulseAudio） | 其余功能完全正常；点"开始录制"即弹窗提示安装 ffmpeg |
-| `tesseract-ocr` + `tesseract-ocr-chi-sim` | OCR 文字识别的兜底引擎（中文+英文） | 其余功能完全正常；OCR 时弹窗提示安装命令 |
-| `xclip` | 剪贴板图片持久化（系统无剪贴板管理器时，程序退出后剪贴板中的截图仍不丢失） | 有剪贴板管理器的桌面无需安装 |
-| `rapidocr`（pip 安装） | 可选的高级 OCR 引擎，中文识别效果显著优于 tesseract | 启动时提示一次（可勾选"不再提醒"）；OCR 回退使用 tesseract |
-
+安装生成的 deb 包：
 ```bash
-sudo apt install ffmpeg xclip tesseract-ocr tesseract-ocr-chi-sim   # 推荐依赖
-pip3 install rapidocr[onnxruntime]                                  # 可选高级 OCR
+sudo dpkg -i build-deb/simplescreenshot_1.0.0-2_amd64.deb
 ```
 
-### 离线 OCR 说明
+---
 
-- deb 包内置 OCR 插件 `assets/plugins/ocr_rapidocr.py`：优先使用 RapidOCR，
-  自动回退 tesseract；调用协议与自定义插件方法见
-  [assets/plugins/README.md](assets/plugins/README.md)。
-- RapidOCR 首次识别会联网下载模型到本地缓存（`~/.cache/` 或 `~/.local/share/` 下
-  rapidocr 相关目录），**之后完全离线运行**。无网机器可在联网机器上先跑一次识别，
-  再把模型缓存目录一并拷贝过去，具体步骤见上述 README。
-- 插件路径留空时自动检测内置插件；也可在 `config.json` 中指定自定义插件：
+## 配置文件指南
 
-  ```json
-  { "ocr": { "plugin": "/path/to/your/plugin.py" } }
-  ```
+配置文件路径：`~/.config/screencapture/config.json`（若程序所在根目录存在 `config.json`，则优先以绿色便携模式加载）。
 
-## 录屏说明
+配置采用原子写盘保护，支持自定义项：
+- `capShortcut`：全局截图快捷键（例如 `"Ctrl+Alt+A"`）。
+- `lang`：界面语言（支持 `"zh-CN"`、`"en-US"`）。
+- `ocr.plugin`：自定义 OCR Python 脚本路径。
+- `ocr.rapidocrHintHidden`：是否隐藏启动时的 RapidOCR 推荐弹窗。
 
-- MP4（H.264 + AAC，最长 120 分钟）与 GIF（最长 6 分钟）两种格式；工具条上
-  可切换并单独开关"系统声音 / 麦克风"，两者可同时录制（自动混合）。
-- 系统声音通过当前默认输出设备的 monitor 源采集。PipeWire 与 PulseAudio
-  桌面均支持（PipeWire 环境经 `pw-cat`、PulseAudio 环境经 `parecord` 采集，
-  绕开 pipewire-pulse 下 ffmpeg pulse 输入录到静音的问题）。
-- 录制以边框内缩 2px 的区域为准，避免把红色录制边框录进视频。
-- 点"开始录制"时若系统缺少 ffmpeg 会立即弹窗提示，停止后若编码失败
-  （如磁盘/设备异常）也会弹窗提示，不会保存损坏的文件。
-
-## 配置文件
-
-`~/.config/screencapture/config.json`（程序目录下存在 `config.json` 时优先使用便携模式）。
-
-常用项：界面语言、截图快捷键、OCR 插件路径（`ocr.plugin`）、启动 OCR 提示开关
-（`ocr.rapidocrHintHidden`）等，均为首次使用时按需写入。
-
-## 仓库结构
-
-```
-include/ src/        C++ 源码（平台层 / 界面层 / 媒体层）
-assets/              运行资源（图标、字体、界面语言 JSON、OCR 插件）
-third_party/         内嵌第三方源码（nlohmann/json、quirc）
-packaging/           deb 打包附属文件（desktop、copyright、changelog、man）
-build-deb.sh         deb 打包脚本（CPack）
-```
+---
 
 ## 许可
 
-专有软件：© 2026 xinwf <xinwf18@gmail.com>，保留所有权利。
-详见 [packaging/copyright](packaging/copyright)。
+专有软件：© 2026 xinwf <xinwf18@gmail.com>，保留所有权利。  
+详情参见 [packaging/copyright](packaging/copyright)。

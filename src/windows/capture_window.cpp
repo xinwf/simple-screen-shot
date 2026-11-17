@@ -830,7 +830,11 @@ void CaptureWindow::stopAndSaveVideo(bool toClipboard) {
     }
     if (videoRecorder_ && videoRecorder_->outputValid()) {
         if (toClipboard) {
-            sc::platform::ClipboardService::setText(videoRecorder_->outputPath().string());
+            if (videoRecorder_->isGif()) {
+                sc::platform::ClipboardService::setGif(videoRecorder_->outputPath());
+            } else {
+                sc::platform::ClipboardService::setFile(videoRecorder_->outputPath(), "video/mp4");
+            }
         } else {
             if (toolVideo_) toolVideo_->hide();
             hide();
