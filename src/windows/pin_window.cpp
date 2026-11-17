@@ -4,6 +4,7 @@
 #include "screencapture/windows/tool_bars.h"
 #include "screencapture/core/app_context.h"
 #include "screencapture/core/config_manager.h"
+#include "screencapture/core/i18n.h"
 #include "screencapture/gfx/text_layout.h"
 #include "screencapture/platform/clipboard_service.h"
 #include "screencapture/platform/file_dialog.h"
@@ -139,8 +140,12 @@ void PinWindow::onCreated() {
     if (inPlaceAnnotate_) {
         toolMain_->selectTool("rect");
         updateToolSubState();
+    } else {
+        // Desktop Pin mode: start with a clean pinned card. Right-click toggles toolbar.
+        toolMain_->hide();
     }
 
+    connectWindowSideEvents();
     layoutTools();
 }
 
@@ -162,6 +167,7 @@ void PinWindow::detachToDesktopPin() {
 
 void PinWindow::onPaint(gfx::CanvasContext& ctx) {
     if (!screenImage_) return;
+    ctx.clear({0.f, 0.f, 0.f, 0.f});
     ctx.save();
     ctx.scale(scale_, scale_);
     ctx.drawImage(*screenImage_,
@@ -172,7 +178,44 @@ void PinWindow::onPaint(gfx::CanvasContext& ctx) {
     }
     if (!isMouseDown_ && shapeHover_) shapeHover_->paintDragger(ctx);
     ctx.restore();
-    ctx.strokeRect({0, 0, width, height}, core::ColorRgba::fromHex(0x1677FF), 2.f * dpi);
+
+    if (inPlaceAnnotate_) {
+        ctx.strokeRect({1.f * dpi, 1.f * dpi, width - 1.f * dpi, height - 1.f * dpi},
+                       core::ColorRgba::fromHex(0x1677FF), 2.f * dpi);
+    } else {
+        // Desktop Pin mode: multi-layer high-contrast border + inner depth shadow + corner pin badge
+        // 1. Outer accent blue border
+        float b1 = 1.25f * dpi;
+        ctx.strokeRect({b1, b1, width - b1, height - b1},
+                       core::ColorRgba::fromHex(0x1677FF), 2.5f * dpi);
+
+        // 2. Inner crisp white border for strong contrast on dark or colorful backgrounds
+        float b2 = 2.75f * dpi;
+        ctx.strokeRect({b2, b2, width - b2, height - b2},
+                       core::ColorRgba::fromRgbaHex(0xFFFFFFE0), 1.5f * dpi);
+
+        // 3. Subtle inner shadow line
+        float b3 = 4.f * dpi;
+        ctx.strokeRect({b3, b3, width - b3, height - b3},
+                       core::ColorRgba::fromRgbaHex(0x00000030), 1.f * dpi);
+
+        // 4. Pin badge in top-left corner
+        if (width >= 60.f * dpi && height >= 35.f * dpi) {
+            std::string badgeText = "\xf0\x9f\x93\x8c " + sc::core::I18n::get()->get("cap.pin");
+            gfx::TextLayout badgeLayout(badgeText, 10.f * dpi, 500.f, 50.f, "Sans Bold");
+            auto bm = badgeLayout.metrics();
+            float padX = 7.f * dpi;
+            float padY = 3.f * dpi;
+            float bw = bm.width + padX * 2.f;
+            float bh = bm.height + padY * 2.f;
+            float bx = 6.f * dpi;
+            float by = 6.f * dpi;
+            core::RectF badgeRect = core::RectF::fromXYWH(bx, by, bw, bh);
+            ctx.fillRoundedRect(badgeRect, 4.f * dpi, core::ColorRgba::fromRgbaHex(0x1E1E1EE0));
+            ctx.strokeRoundedRect(badgeRect, 4.f * dpi, core::ColorRgba::fromRgbaHex(0xFFFFFF40), 1.f * dpi);
+            ctx.drawText(bx + padX, by + padY, badgeLayout, core::ColorRgba::fromHex(0xFFFFFF));
+        }
+    }
 
     if (showScaleTip_) {
         char buf[32];
@@ -241,8 +284,17 @@ void PinWindow::onMouseDown(const core::PointF& screenPos, bool right) {
             refresh();
         }
         if (!inPlaceAnnotate_) {
+            dragging_ = true;
+            auto pt = sc::platform::X11Display::get()->pointerPosition();
+            dragStartMouseX_ = pt.x;
+            dragStartMouseY_ = pt.y;
             dragStartWindowX_ = x;
             dragStartWindowY_ = y;
+            if (GdkSeat* seat = gdk_display_get_default_seat(gdk_display_get_default())) {
+                gdk_seat_grab(seat, gtk_widget_get_window(native()),
+                              GDK_SEAT_CAPABILITY_POINTER, FALSE, nullptr, nullptr,
+                              nullptr, nullptr);
+            }
         }
         return;
     }
@@ -261,6 +313,18 @@ void PinWindow::onMouseDown(const core::PointF& screenPos, bool right) {
 }
 
 void PinWindow::onMouseMove(const core::PointF& screenPos) {
+    if (dragging_) {
+        hasDragged_ = true;
+        auto pt = sc::platform::X11Display::get()->pointerPosition();
+        int nx = dragStartWindowX_ + (pt.x - dragStartMouseX_);
+        int ny = dragStartWindowY_ + (pt.y - dragStartMouseY_);
+        if (nx != x || ny != y) {
+            move(nx, ny);
+            layoutTools();
+        }
+        return;
+    }
+
     auto pos = toImgPos(screenPos);
     if (isMouseDown_) {
         if (std::hypot(screenPos.x - pressPos_.x, screenPos.y - pressPos_.y) > 2.f)
@@ -269,16 +333,6 @@ void PinWindow::onMouseMove(const core::PointF& screenPos) {
             shapeHover_->mouseDrag(pos.x, pos.y);
             shapeHover_->setCursor();
             refresh();
-        } else {
-            std::string tool = toolMain_ ? toolMain_->currentTool() : std::string{};
-            if (tool.empty() && !inPlaceAnnotate_) {
-                float dx = screenPos.x - pressPos_.x;
-                float dy = screenPos.y - pressPos_.y;
-                int nx = dragStartWindowX_ + static_cast<int>(dx);
-                int ny = dragStartWindowY_ + static_cast<int>(dy);
-                move(nx, ny);
-                layoutTools();
-            }
         }
         return;
     }
@@ -305,6 +359,12 @@ void PinWindow::onMouseMove(const core::PointF& screenPos) {
 
 void PinWindow::onMouseUp(const core::PointF& screenPos, bool right) {
     if (right) return;
+    if (dragging_) {
+        dragging_ = false;
+        if (GdkSeat* seat = gdk_display_get_default_seat(gdk_display_get_default())) {
+            gdk_seat_ungrab(seat);
+        }
+    }
     isMouseDown_ = false;
     auto* justCreated = newShape_;
     newShape_ = nullptr;
@@ -442,6 +502,12 @@ void PinWindow::onShown() {
 }
 
 void PinWindow::onDestroy() {
+    if (dragging_) {
+        dragging_ = false;
+        if (GdkSeat* seat = gdk_display_get_default_seat(gdk_display_get_default())) {
+            gdk_seat_ungrab(seat);
+        }
+    }
     killTimer(kHoverTimer);
     killTimer(kScaleTipTimer);
     if (editingText_) editingText_->finishEdit();

@@ -74,11 +74,13 @@ private:
     sc::shapes::ShapeText* editingText_{nullptr};
     bool inPlaceAnnotate_{false};
     bool isMouseDown_{false}, hasDragged_{false};
+    bool dragging_{false};
     bool showScaleTip_{false};
     core::PointF pressPos_{};
     core::PointF lastClickPos_{};
     int64_t lastClickTime_{0};
     int dragStartWindowX_{0}, dragStartWindowY_{0};
+    int dragStartMouseX_{0}, dragStartMouseY_{0};
     float scale_{1.f};
     static constexpr uint32_t kHoverTimer = 100;
     static constexpr uint32_t kScaleTipTimer = 101;
