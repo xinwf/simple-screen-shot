@@ -1,3 +1,30 @@
+simplescreenshot (1.0.0-2) unstable; urgency=medium
+
+  * Screen recording rework:
+    - GIF: record an intermediate MP4 first and assemble the GIF after
+      stop. A live palettegen filter graph produced an empty file when
+      ffmpeg was quit via the 'q' key (reproducible on ffmpeg >= 6).
+    - Audio: capture via a feeder process (pw-cat on PipeWire desktops,
+      parecord on PulseAudio) writing a WAV file that is mixed onto the
+      video at stop — ffmpeg's pulse monitor input records silence
+      through pipewire-pulse. The speaker and microphone toggles now
+      take effect; enabling both mixes the two sources.
+    - Check ffmpeg when recording starts and verify the encoded file
+      after stop: missing dependency and failed encodes now show a
+      dialog instead of silently producing broken files.
+  * Fix segfault when closing capture toolbars (reproducible on the
+    recording bar): hover tracking pointed into freed widget trees.
+    Tool windows are now hidden immediately and destroyed on the next
+    idle, outside their own GTK signal handlers.
+  * Fix the recording elapsed timer freezing at 00:01 (one-shot timer
+    was never re-armed).
+  * Packaging: tesseract-ocr / tesseract-ocr-chi-sim move from Depends
+    to Recommends alongside ffmpeg and xclip. QR decoding stays fully
+    bundled (quirc). Each optional feature checks its helper at use
+    time and shows a missing-dependency dialog.
+
+ -- xinwf <xinwf18@gmail.com>  Tue, 17 Nov 2026 06:10:00 +0800
+
 simplescreenshot (1.0.0-1) unstable; urgency=medium
 
   * 1.0.0 public release.

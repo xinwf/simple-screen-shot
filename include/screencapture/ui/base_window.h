@@ -46,6 +46,9 @@ public:
     void hollowRect(const core::RectF& hole);
     void restoreInputShape();
     void setCursorByHint(int hint);
+    // Drop hovered_/activeSlider_/tooltip before rebuilding body->children —
+    // they point into the old tree and would dangle across the rebuild.
+    void resetHoverTracking();
 
     void setTimer(uint32_t intervalMs, uint32_t id);
     void killTimer(uint32_t id);

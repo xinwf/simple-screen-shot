@@ -134,7 +134,7 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 # Debian package revision: bump whenever the packaged content changes
 # (features, icons, docs, install layout) so apt treats it as an upgrade of
 # the same upstream version instead of skipping an identical 1.0.0.
-set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
+set(CPACK_DEBIAN_PACKAGE_RELEASE "2")
 set(CPACK_STRIP_FILES ON)
 # Debian-standard directory permissions (lintian: non-standard-dir-perm).
 set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
@@ -143,12 +143,14 @@ set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
     WORLD_READ WORLD_EXECUTE)
 # Exact per-library Depends computed from the packaged binary (dpkg-shlibdeps).
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-# OCR shells out to tesseract (chi_sim+eng) — make it a hard dependency so
-# a fresh `apt install ./deb` yields working OCR out of the box. Screen
-# recording shells out to ffmpeg; xclip persists clipboard images without a
-# clipboard manager — both stay optional (heavier / rarer use).
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "tesseract-ocr, tesseract-ocr-chi-sim")
-set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "ffmpeg, xclip")
+# Optional runtime helpers, all shipped as Recommends (not hard Depends):
+# OCR shells out to tesseract (chi_sim+eng), screen recording shells out to
+# ffmpeg, and xclip persists clipboard images without a clipboard manager.
+# Each feature checks its helper at use time and shows a "missing
+# dependency" dialog instead of failing silently. QR decoding needs no
+# external package (quirc is vendored in third_party/).
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
+    "ffmpeg, xclip, tesseract-ocr, tesseract-ocr-chi-sim")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_GENERATOR "DEB")
 

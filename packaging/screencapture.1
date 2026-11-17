@@ -36,15 +36,20 @@ System-installed runtime resources (icon font, logo, translations).
 .I ~/.config/screencapture/
 Per-user configuration and data (config.json).
 .SH NOTES
-The screen-recording feature requires
-.BR ffmpeg (1)
-and the OCR feature requires
+Optional features rely on helper programs shipped as package
+recommends; each feature checks its helper when used and shows a
+missing-dependency dialog instead of failing silently. Screen
+recording (MP4/GIF, optionally with system audio and microphone
+captured through PipeWire or PulseAudio) needs
+.BR ffmpeg (1).
+OCR needs
 .BR tesseract (1)
-with the desired language packs (the package recommends
+with the desired language packs (recommended:
 .IR tesseract\-ocr\-chi\-sim ).
 Images are also persisted through
 .BR xclip (1)
-when no clipboard manager is running.
+when no clipboard manager is running. QR code decoding has no external
+dependency (the quirc decoder is bundled).
 .SH SEE ALSO
 .BR ffmpeg (1),
 .BR tesseract (1),

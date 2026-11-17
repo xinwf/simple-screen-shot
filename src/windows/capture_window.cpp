@@ -444,7 +444,7 @@ void CaptureWindow::onKeyDown(uint32_t key) {
         if (stage_ == CapStage::Long) killTimer(kScrollMsg);
         if (stage_ == CapStage::Video) {
             killTimer(kVideoTickMsg);
-            if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->stop();
+            if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->cancel();
         }
         if (stage_ == CapStage::Annotate) {
             PinWindow::closeInPlace();
@@ -529,9 +529,17 @@ void CaptureWindow::onDestroy() {
     closed_ = true;
     killTimer(kScrollMsg);
     killTimer(kVideoTickMsg);
-    closeAllTools();
+    // Tool windows must be destroyed on the next idle, not here: they may be
+    // the very windows whose button handler is on the GTK dispatch stack
+    // (e.g. the video toolbar's discard button), and destroying a widget
+    // inside its own signal emission leaves the event dispatch running into
+    // freed BaseWindows (ASan: dynamic_cast SEGV in handleMotion).
+    if (toolCap_) toolCap_->hide();
+    if (toolLong_) toolLong_->hide();
+    if (toolVideo_) toolVideo_->hide();
     auto* self = this;
     sc::core::AppContext::get()->postTask([self]() {
+        self->closeAllTools();
         auto it = std::find_if(instances_.begin(), instances_.end(),
             [self](const auto& p) { return p.get() == self; });
         if (it != instances_.end()) instances_.erase(it);
@@ -740,6 +748,8 @@ void CaptureWindow::onTimer(uint32_t id) {
                       videoElapsedSec_ / 60, videoElapsedSec_ % 60,
                       toolVideo_->isMp4() ? "120:00" : "06:00");
         toolVideo_->setTimerText(buf);
+        // Timers are one-shot: re-arm for the next elapsed second.
+        setTimer(1000, kVideoTickMsg);
     }
 }
 
@@ -774,8 +784,11 @@ void CaptureWindow::startVideo() {
             } else {
                 if (toolVideo_) toolVideo_->hide();
                 hide();
-                showInfoDialog(sc::core::I18n::get()->get("about.sysTip"),
-                               sc::core::I18n::get()->get("video.recordFailed"));
+                auto i18n = sc::core::I18n::get();
+                showInfoDialog(i18n->get("about.sysTip"),
+                               sc::media::VideoRecorder::ffmpegAvailable()
+                                   ? i18n->get("video.recordFailed")
+                                   : i18n->get("video.ffmpegMissing"));
                 closeAll();
             }
         } else if (act == "stop" || act == "save") {
@@ -784,7 +797,7 @@ void CaptureWindow::startVideo() {
             stopAndSaveVideo(true);
         } else if (act == "close" || act == "discard") {
             killTimer(kVideoTickMsg);
-            if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->stop();
+            if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->cancel();
             closeAll();
         }
     };
@@ -803,8 +816,7 @@ void CaptureWindow::stopAndSaveVideo(bool toClipboard) {
     if (videoRecorder_ && videoRecorder_->recording()) {
         videoRecorder_->stop();
     }
-    if (videoRecorder_ && !videoRecorder_->outputPath().empty() &&
-        std::filesystem::exists(videoRecorder_->outputPath())) {
+    if (videoRecorder_ && videoRecorder_->outputValid()) {
         if (toClipboard) {
             sc::platform::ClipboardService::setText(videoRecorder_->outputPath().string());
         } else {
@@ -818,6 +830,13 @@ void CaptureWindow::stopAndSaveVideo(bool toClipboard) {
                     std::filesystem::copy_options::overwrite_existing, ec);
             }
         }
+    } else if (videoRecorder_) {
+        // The encode failed (missing/broken ffmpeg, failed audio device, …) —
+        // never silently save an empty or stale file.
+        if (toolVideo_) toolVideo_->hide();
+        hide();
+        showInfoDialog(sc::core::I18n::get()->get("about.sysTip"),
+                       sc::core::I18n::get()->get("video.recordFailed"));
     }
     closeAll();
 }

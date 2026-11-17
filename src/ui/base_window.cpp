@@ -377,6 +377,15 @@ void BaseWindow::restoreInputShape() {
     }
 }
 
+// Hover/slider tracking points into the widget tree; callers that rebuild
+// body->children must drop the stale pointers first, or the next motion event
+// dynamic_casts through freed nodes (crash on recording start).
+void BaseWindow::resetHoverTracking() {
+    hovered_ = nullptr;
+    activeSlider_ = nullptr;
+    if (tooltip_) tooltip_->hide();
+}
+
 void BaseWindow::setTimer(uint32_t intervalMs, uint32_t id) {
     killTimer(id);
     auto* ctx = new std::pair<BaseWindow*, uint32_t>(this, id);

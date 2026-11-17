@@ -97,6 +97,7 @@ void ToolBarBase::addSeparator(float sepWidth, uint32_t color) {
 void ToolBarBase::buildBar(const std::vector<std::string>& ids,
                            const std::vector<std::string>& glyphs) {
     body->children.clear();
+    resetHoverTracking(); // old buttons are freed; drop dangling hover pointers
     body->setBg(0xFFFFFFFF);
     body->setBorder(1.f, 0xA8A8A8FF);
     body->setFlexDirection(FlexDirection::Row);
@@ -432,6 +433,7 @@ void ToolVideo::rebuildSettingBar() {
     recording_ = false;
     timerLabel_ = nullptr;
     body->children.clear();
+    resetHoverTracking(); // old buttons are freed; drop dangling hover pointers
     body->setBg(0xFFFFFFFF);
     body->setBorder(1.f, 0xA8A8A8FF);
     body->setFlexDirection(FlexDirection::Row);
@@ -513,6 +515,7 @@ void ToolVideo::showRecording(bool recording) {
     btnMic_ = nullptr;
 
     body->children.clear();
+    resetHoverTracking(); // old buttons are freed; drop dangling hover pointers
     body->setBg(0xFFFFFFFF);
     body->setBorder(1.f, 0xA8A8A8FF);
     body->setFlexDirection(FlexDirection::Row);

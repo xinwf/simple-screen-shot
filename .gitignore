@@ -3,6 +3,7 @@ build/
 build-deb/
 build-gcc*/
 *.deb
+build-asan
 
 # CMake / editor
 CMakeLists.txt.user
