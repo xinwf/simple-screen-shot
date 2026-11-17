@@ -1,4 +1,5 @@
 #include "screencapture/platform/file_dialog.h"
+#include "screencapture/core/i18n.h"
 #include <chrono>
 #include <cstdio>
 #include <ctime>
@@ -21,8 +22,12 @@ std::string FileDialog::createFileName(const std::string& ext) {
 }
 
 std::filesystem::path FileDialog::saveImage(const std::string& ext, GtkWindow* parent) {
+    auto* i18n = core::I18n::get();
+    std::string title = i18n->get("save.saveTitle");
+    std::string saveBtn = "_" + i18n->get("tool.save");
+    std::string cancelBtn = "_" + i18n->get("tool.close");
     GtkFileChooserNative* dialog = gtk_file_chooser_native_new(
-        "Save Screenshot", parent, GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", "_Cancel");
+        title.c_str(), parent, GTK_FILE_CHOOSER_ACTION_SAVE, saveBtn.c_str(), cancelBtn.c_str());
     gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
     auto defaultName = createFileName(ext);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), defaultName.c_str());
@@ -41,8 +46,12 @@ std::filesystem::path FileDialog::saveImage(const std::string& ext, GtkWindow* p
 }
 
 std::string FileDialog::chooseDirectory(const std::string& current, GtkWindow* parent) {
+    auto* i18n = core::I18n::get();
+    std::string title = i18n->get("save.chooseFolder");
+    std::string selectBtn = "_" + i18n->get("save.select");
+    std::string cancelBtn = "_" + i18n->get("tool.close");
     GtkFileChooserNative* dialog = gtk_file_chooser_native_new(
-        "Choose Folder", parent, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, "_Select", "_Cancel");
+        title.c_str(), parent, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, selectBtn.c_str(), cancelBtn.c_str());
     if (!current.empty()) {
         gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), current.c_str());
     }

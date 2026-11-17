@@ -65,8 +65,16 @@ void ConfigManager::save() {
     if (!obj_) return;
     std::error_code ec;
     std::filesystem::create_directories(configPath_.parent_path(), ec);
-    std::ofstream ofs(configPath_, std::ios::binary | std::ios::trunc);
-    if (ofs.good()) ofs << obj_->dump(2);
+    auto tmpPath = configPath_;
+    tmpPath += ".tmp";
+    {
+        std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
+        if (!ofs.good()) return;
+        ofs << obj_->dump(2);
+        ofs.flush();
+        if (!ofs.good()) return;
+    }
+    std::filesystem::rename(tmpPath, configPath_, ec);
 }
 
 nlohmann::json* ConfigManager::navigate(const std::string& dottedPath, bool create) {

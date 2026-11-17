@@ -10,9 +10,13 @@
     "pin": "钉住",
     "ocrSuccess": "文字识别成功（已复制到剪贴板）：",
     "ocrEmpty": "未识别到文字（请确认选区包含清晰文字）。",
-    "ocrMissing": "未检测到 OCR 工具 tesseract：\n请安装 tesseract-ocr 与中文语言包：\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim"
+    "ocrMissing": "未检测到 OCR 工具 tesseract：\n请安装 tesseract-ocr 与中文语言包：\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
+    "ocrHintTitle": "OCR 引擎提示",
+    "ocrHintBody": "检测到 RapidOCR 未安装，OCR 将回退到系统 tesseract。\n\nRapidOCR 的中文识别效果明显更好，推荐安装：\n    pip install rapidocr[onnxruntime]\n\n安装说明见程序目录下 assets/plugins/README.md。",
+    "dontRemind": "不再提醒"
   },
   "tray": {
+    "capture": "截图",
     "exit": "退出",
     "about": "关于",
     "delayN": "延迟 {n} 秒",
@@ -111,6 +115,9 @@
     "name": "名称(N)：",
     "folder": "目录(F)：",
     "browse": "浏览…",
-    "screenshotName": "屏幕截图"
+    "screenshotName": "屏幕截图",
+    "saveTitle": "保存截图",
+    "chooseFolder": "选择目录",
+    "select": "选择"
   }
 }

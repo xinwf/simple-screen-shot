@@ -31,6 +31,11 @@ bool pidIsSameBinary(int pid) {
     std::string target = p ? p : "";
     if (err) g_error_free(err);
     g_free(p);
+    constexpr std::string_view kDeleted = " (deleted)";
+    if (target.size() > kDeleted.size() &&
+        target.compare(target.size() - kDeleted.size(), kDeleted.size(), kDeleted) == 0) {
+        target.resize(target.size() - kDeleted.size());
+    }
     return !target.empty() && target == exePath();
 }
 

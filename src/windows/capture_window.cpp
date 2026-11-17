@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <thread>
 
 namespace sc::windows {
 
@@ -644,8 +645,14 @@ void CaptureWindow::startLong() {
     if (toolCap_) toolCap_->hide();
 
     auto rect = cutRectScreen();
+    // Inset by 2px so the blue selection border is not recorded into the long screenshot
+    rect.left += 2;
+    rect.top += 2;
+    rect.right -= 2;
+    rect.bottom -= 2;
     longW_ = rect.width();
     longH_ = rect.height();
+    if (longW_ < 4 || longH_ < 4) { closeAll(); return; }
 
     // Cut a visual and input hole inside cutMask_->maskRect so the live window
     // underneath is visible and receives scroll events.
@@ -680,7 +687,7 @@ void CaptureWindow::startLong() {
             if (longResult_) {
                 auto cr = cutRectScreen();
                 suppressAutoQuit_ = true;
-                PinWindow::init(longResult_, cr.left, cr.top, false);
+                PinWindow::init(longResult_, cr.left + 2, cr.top + 2, false);
             }
             closeAll();
         }
@@ -703,6 +710,12 @@ void CaptureWindow::startLong() {
 
 void CaptureWindow::longStep() {
     auto rect = cutRectScreen();
+    // Inset by 2px so the blue selection border is not recorded into the long screenshot
+    rect.left += 2;
+    rect.top += 2;
+    rect.right -= 2;
+    rect.bottom -= 2;
+
     auto frame = sc::platform::ScreenCapturer::capture(rect.left, rect.top, longW_, longH_);
     if (!frame) { closeAll(); return; }
     frame->flush();
@@ -724,17 +737,16 @@ void CaptureWindow::longStep() {
         return;
     }
     hollowRect(cutMask_->maskRect);
-    // Keep pointer inside selection while scrolling unless user moved onto ToolLong
+
+    // Only inject scroll wheel events when the mouse is NOT hovering over ToolLong.
+    // Never warp the user's pointer, allowing them to freely move to the toolbar to finish or cancel.
     auto pt = sc::platform::X11Display::get()->pointerPosition();
     bool onToolLong = toolLong_ && toolLong_->isVisible() &&
                       pt.x >= toolLong_->x && pt.x <= toolLong_->x + static_cast<int>(toolLong_->width) &&
                       pt.y >= toolLong_->y && pt.y <= toolLong_->y + static_cast<int>(toolLong_->height);
-    if (!onToolLong && (pt.x <= rect.left + 4 || pt.x >= rect.right - 4 ||
-                        pt.y <= rect.top + 4 || pt.y >= rect.bottom - 4)) {
-        sc::platform::InputInjector::setPointer(rect.left + rect.width() / 2,
-                                                rect.top + rect.height() / 2);
+    if (!onToolLong) {
+        sc::platform::InputInjector::scrollWheelDown(2);
     }
-    sc::platform::InputInjector::scrollWheelDown(2);
     setTimer(450, kScrollMsg);
 }
 
@@ -845,28 +857,42 @@ void CaptureWindow::startOcr() {
     auto img = getCutImage();
     if (toolCap_) toolCap_->hide();
     setOverlaysVisible(false);
-    if (img) {
-        auto* i18n = sc::core::I18n::get();
-        std::string plugin = resolveOcrPlugin();
-        if (!sc::media::OcrRunner::available(plugin)) {
-            showInfoDialog(i18n->get("cap.ocr"), i18n->get("cap.ocrMissing"));
-            closeAll();
-            return;
-        }
+    if (!img) {
+        closeAll();
+        return;
+    }
+    auto* i18n = sc::core::I18n::get();
+    std::string plugin = resolveOcrPlugin();
+    if (!sc::media::OcrRunner::available(plugin)) {
+        showInfoDialog(i18n->get("cap.ocr"), i18n->get("cap.ocrMissing"));
+        closeAll();
+        return;
+    }
+
+    suppressAutoQuit_ = true;
+    const bool quitWhenDone = sc::core::AppContext::get()->autoQuit();
+    closeAll();
+
+    std::thread([img, plugin, quitWhenDone]() {
         auto text = sc::media::OcrRunner::recognize(img, plugin);
         while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) {
             text.pop_back();
         }
-        if (!text.empty()) {
-            sc::platform::ClipboardService::setText(text);
-            showInfoDialog(i18n->get("cap.ocr"),
-                           i18n->get("cap.ocrSuccess") + "\n\n" + text);
-        } else {
-            showInfoDialog(sc::core::I18n::get()->get("cap.ocr"),
-                           i18n->get("cap.ocrEmpty"));
-        }
-    }
-    closeAll();
+        sc::core::AppContext::get()->postTask([text, quitWhenDone]() {
+            auto* i18n = sc::core::I18n::get();
+            if (!text.empty()) {
+                sc::platform::ClipboardService::setText(text);
+                showInfoDialog(i18n->get("cap.ocr"),
+                               i18n->get("cap.ocrSuccess") + "\n\n" + text);
+            } else {
+                showInfoDialog(i18n->get("cap.ocr"),
+                               i18n->get("cap.ocrEmpty"));
+            }
+            if (quitWhenDone) {
+                sc::core::AppContext::get()->quit(0);
+            }
+        });
+    }).detach();
 }
 
 void CaptureWindow::startQrcode() {

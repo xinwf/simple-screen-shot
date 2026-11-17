@@ -31,6 +31,7 @@ int LongStitcher::findMostSimilarY(const uint8_t* gray1, int gray1H,
     int bestY = 0;
     for (int y = 0; y < searchH; ++y) {
         double error = 0.0;
+        const double maxAllowedError = minAvgError * gray2H;
         for (int row = 0; row < gray2H; ++row) {
             const uint8_t* row1 = gray1 + static_cast<size_t>(y + row) * width;
             const uint8_t* row2 = gray2 + static_cast<size_t>(row) * width;
@@ -38,6 +39,7 @@ int LongStitcher::findMostSimilarY(const uint8_t* gray1, int gray1H,
                 int diff = static_cast<int>(row1[x]) - static_cast<int>(row2[x]);
                 error += diff * diff;
             }
+            if (error >= maxAllowedError) break;
         }
         double avgError = error / gray2H;
         if (avgError < minAvgError) {
@@ -60,6 +62,7 @@ int LongStitcher::findScrollByBottomStrip(const uint8_t* grayOld, const uint8_t*
     for (int s = 0; s < stripH; ++s) {
         int rows = stripH - s;
         double error = 0.0;
+        const double maxAllowedError = minAvgError * rows;
         for (int r = 0; r < rows; ++r) {
             const uint8_t* row1 = grayOld + static_cast<size_t>(s + r) * width;
             const uint8_t* row2 = grayNew + static_cast<size_t>(r) * width;
@@ -67,6 +70,7 @@ int LongStitcher::findScrollByBottomStrip(const uint8_t* grayOld, const uint8_t*
                 int diff = static_cast<int>(row1[x]) - static_cast<int>(row2[x]);
                 error += diff * diff;
             }
+            if (error >= maxAllowedError) break;
         }
         double avgError = error / rows;
         if (s == 0) avgAtZero = avgError;
@@ -82,6 +86,7 @@ void LongStitcher::begin(const uint8_t* frame, int width, int height) {
     imgW_ = width; imgH_ = height;
     resultH_ = height;
     const size_t bytes = static_cast<size_t>(width) * height * 4;
+    imgData_.reserve(bytes * 4);
     imgData_.assign(frame, frame + bytes);
     img1_ = imgData_;
     changeStartY_ = -1;
@@ -147,15 +152,19 @@ bool LongStitcher::appendFrame(const uint8_t* data, bool& reachedEnd) {
 
     int paintStart = resultH_ - (imgH_ - y - changeStartY_);
     int newResultH = paintStart + (imgH_ - changeStartY_);
-    std::vector<uint8_t> newResult(static_cast<size_t>(rowPix) * newResultH);
-    std::memcpy(newResult.data(), imgData_.data(), imgData_.size());
+    const size_t newSizeBytes = static_cast<size_t>(rowPix) * newResultH;
+    if (imgData_.size() < newSizeBytes) {
+        if (imgData_.capacity() < newSizeBytes) {
+            imgData_.reserve(std::max(newSizeBytes, imgData_.capacity() * 3 / 2));
+        }
+        imgData_.resize(newSizeBytes);
+    }
     for (int row = 0; row < imgH_ - changeStartY_; ++row) {
-        std::memcpy(newResult.data() + static_cast<size_t>(paintStart + row) * rowPix,
+        std::memcpy(imgData_.data() + static_cast<size_t>(paintStart + row) * rowPix,
                     frame.data() + static_cast<size_t>(changeStartY_ + row) * rowPix,
                     static_cast<size_t>(rowPix));
     }
-    imgData_ = std::move(newResult);
-    img1_ = frame;
+    img1_ = std::move(frame);
     resultH_ = newResultH;
     if (resultH_ > kMaxResultH) { reachedEnd = true; return true; }
     return true;

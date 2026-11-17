@@ -1,8 +1,10 @@
 #include "screencapture/platform/clipboard_service.h"
 #include <gtk/gtk.h>
 #include <gdk/gdkpixbuf.h>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <unistd.h>
 
 namespace sc::platform {
 
@@ -69,7 +71,9 @@ void ClipboardService::setImage(const std::shared_ptr<gfx::ImageSurface>& image)
 
     // Also persist to xclip in background if xclip is available so --auto-quit=true
     // keeps the image on X11 desktops without a clipboard manager.
-    auto tmpPng = std::filesystem::temp_directory_path() / "sc_clipboard_persist.png";
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    auto tmpPng = std::filesystem::temp_directory_path() /
+                  ("sc_clip_" + std::to_string(getpid()) + "_" + std::to_string(now) + ".png");
     if (image->saveToPng(tmpPng)) {
         std::string cmd = "sh -c 'if command -v xclip >/dev/null 2>&1; then "
                           "xclip -selection clipboard -t image/png -i \"" +

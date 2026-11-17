@@ -10,9 +10,13 @@
     "pin": "Pin",
     "ocrSuccess": "OCR succeeded (copied to clipboard):",
     "ocrEmpty": "No text recognized (make sure the selection contains clear text).",
-    "ocrMissing": "OCR tool tesseract not found:\nInstall it with the Chinese pack:\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim"
+    "ocrMissing": "OCR tool tesseract not found:\nInstall it with the Chinese pack:\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
+    "ocrHintTitle": "OCR Engine Notice",
+    "ocrHintBody": "RapidOCR is not detected. OCR will fall back to system tesseract.\n\nRapidOCR provides significantly better recognition accuracy. Recommended install:\n    pip install rapidocr[onnxruntime]\n\nSee assets/plugins/README.md for details.",
+    "dontRemind": "Do not remind again"
   },
   "tray": {
+    "capture": "Capture",
     "exit": "Exit",
     "about": "About",
     "delayN": "Delay {n} s",
@@ -111,6 +115,9 @@
     "name": "Name: ",
     "folder": "Folder: ",
     "browse": "Browse…",
-    "screenshotName": "Screenshot"
+    "screenshotName": "Screenshot",
+    "saveTitle": "Save Screenshot",
+    "chooseFolder": "Choose Folder",
+    "select": "Select"
   }
 }

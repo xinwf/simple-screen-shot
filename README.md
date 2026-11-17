@@ -111,7 +111,7 @@ pip3 install rapidocr[onnxruntime]                                  # 可选高�
 ```
 include/ src/        C++ 源码（平台层 / 界面层 / 媒体层）
 assets/              运行资源（图标、字体、界面语言 JSON、OCR 插件）
-third_party/         内嵌第三方源码（nlohmann/json、quirc、cgif）
+third_party/         内嵌第三方源码（nlohmann/json、quirc）
 packaging/           deb 打包附属文件（desktop、copyright、changelog、man）
 build-deb.sh         deb 打包脚本（CPack）
 ```

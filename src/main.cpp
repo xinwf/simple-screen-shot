@@ -59,13 +59,11 @@ static void checkOcrEngine() {
     if (!std::filesystem::exists(bundled)) return;
     if (media::OcrRunner::rapidocrAvailable(bundled.string())) return; // RapidOCR usable
 
+    auto* i18n = core::I18n::get();
     bool hide = platform::showInfoDialogWithCheckbox(
-        "OCR 引擎提示",
-        "检测到 RapidOCR 未安装，OCR 将回退到系统 tesseract。\n\n"
-        "RapidOCR 的中文识别效果明显更好，推荐安装：\n"
-        "    pip install rapidocr[onnxruntime]\n\n"
-        "安装说明见程序目录下 assets/plugins/README.md。",
-        "不再提醒");
+        i18n->get("cap.ocrHintTitle"),
+        i18n->get("cap.ocrHintBody"),
+        i18n->get("cap.dontRemind"));
     if (hide) cfg->setOcrRapidocrHintHidden(true);
 
     // Drain everything the dialog left queued (unmap/destroy, repaints), then
@@ -145,6 +143,7 @@ int main(int argc, char** argv) {
     }
 
     app->onBeforeQuit.add([]() {
+        platform::GlobalShortcut::get()->unregisterAll();
         platform::clearInstancePid();
         platform::SystemTray::get()->dispose();
         windows::CaptureWindow::dispose();

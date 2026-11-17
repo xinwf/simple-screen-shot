@@ -29,7 +29,7 @@ std::string defaultName() {
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     localtime_r(&t, &tm);
-    char buf[32];
+    char buf[80];
     std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d-%02d-%02d",
                   tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
                   tm.tm_hour, tm.tm_min, tm.tm_sec);

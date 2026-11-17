@@ -18,7 +18,6 @@ pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0)
 # Third-party C libraries compiled fully as C++20.
 file(GLOB_RECURSE THIRD_PARTY_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quirc/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cgif/*.cpp"
 )
 set_source_files_properties(${THIRD_PARTY_SOURCES} PROPERTIES
     COMPILE_DEFINITIONS "QUIRC_MAX_REGIONS=65534"
@@ -40,7 +39,6 @@ target_include_directories(screencapture PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/quirc
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cgif
 )
 
 target_compile_options(screencapture PRIVATE
@@ -60,6 +58,7 @@ target_link_libraries(screencapture PRIVATE
     PkgConfig::X11_DEPS
     PkgConfig::GIO
     pthread
+    ${CMAKE_DL_LIBS}
 )
 
 # Runtime resources: copy assets next to the executable output.
@@ -150,7 +149,8 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # dependency" dialog instead of failing silently. QR decoding needs no
 # external package (quirc is vendored in third_party/).
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
-    "ffmpeg, xclip, tesseract-ocr, tesseract-ocr-chi-sim")
+    "ffmpeg, xclip, tesseract-ocr, tesseract-ocr-chi-sim, libappindicator3-1")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/packaging/prerm")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_GENERATOR "DEB")
 

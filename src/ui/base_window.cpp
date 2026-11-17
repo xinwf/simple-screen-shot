@@ -225,6 +225,12 @@ void BaseWindow::show() {
     if (GdkWindow* gw = gtk_widget_get_window(window_)) {
         gdk_window_move_resize(gw, x, y, wInt, hInt);
         gdk_window_raise(gw);
+        Display* dpy = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+        if (dpy) {
+            Window xw = GDK_WINDOW_XID(gw);
+            XRaiseWindow(dpy, xw);
+            XFlush(dpy);
+        }
     }
     layout();
 }
@@ -305,6 +311,12 @@ void BaseWindow::raise() {
     if (!window_ || !gtk_widget_get_realized(window_)) return;
     if (GdkWindow* gw = gtk_widget_get_window(window_)) {
         gdk_window_raise(gw);
+        Display* dpy = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+        if (dpy) {
+            Window xw = GDK_WINDOW_XID(gw);
+            XRaiseWindow(dpy, xw);
+            XFlush(dpy);
+        }
     }
 }
 

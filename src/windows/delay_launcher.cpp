@@ -36,7 +36,7 @@ void settleBeforeCapture() {
     }
     gdk_display_flush(gdk_display_get_default());
     g_usleep(200 * 1000);
-    gdk_flush();
+    gdk_display_flush(gdk_display_get_default());
 }
 
 } // namespace
@@ -56,26 +56,37 @@ void DelayLauncherWindow::startTrayCountdown(int seconds) {
 }
 
 void DelayLauncherWindow::init() {
+    if (sc::windows::CaptureWindow::hasWindow()) return;
+
+    auto* display = sc::platform::X11Display::get();
+    auto pt = display->pointerPosition();
+    auto m = display->monitorAt(pt.x, pt.y);
+    float left = static_cast<float>(m.left) + (static_cast<float>(m.width()) - kW) * 0.5f;
+    float top = static_cast<float>(m.top) + (static_cast<float>(m.height()) - kH) * 0.5f;
+
     if (instance_) {
-        // Re-show an existing (hidden) dialog instead of doing nothing.
+        // Re-show an existing dialog: cancel countdown if any, reset seconds and restore controls.
+        instance_->killTimer(kCountdownTimerId);
+        instance_->counting_ = false;
+        instance_->remaining_ = -1;
+        instance_->seconds_ = 0;
+        instance_->updateControls();
+        instance_->move(static_cast<int>(left), static_cast<int>(top));
         instance_->show();
         instance_->raise();
+        if (instance_->native()) {
+            gtk_window_present(GTK_WINDOW(instance_->native()));
+        }
         instance_->grabKeyboardFocus();
         return;
     }
-    auto* display = sc::platform::X11Display::get();
-    auto monitors = display->monitors();
-    if (monitors.empty()) monitors.push_back(display->virtualDesktop());
-    const auto& m = monitors.front();
 
     instance_.reset(new DelayLauncherWindow());
-    float left = static_cast<float>(m.left) + (static_cast<float>(m.width()) - kW) * 0.5f;
-    float top = static_cast<float>(m.top) + (static_cast<float>(m.height()) - kH) * 0.5f;
-    // No flags: a WM-managed borderless toplevel, NOT an override-redirect
-    // popup — other windows must be able to cover this dialog. The WM cannot
-    // drag a decorated-less window, so title-area dragging is manual (see
-    // onMouseDown), same scheme as SaveDialogWindow.
-    instance_->create("SimpleScreenShot", core::RectF::fromXYWH(left, top, kW, kH), {});
+    // Topmost popup: bypasses WM focus-stealing prevention and stays visible on
+    // top of existing full/maximized windows upon launch or signal wakeup.
+    // Title-area dragging is manual (see onMouseDown), same scheme as SaveDialogWindow.
+    instance_->create("SimpleScreenShot", core::RectF::fromXYWH(left, top, kW, kH),
+                      {sc::ui::WindowFlag::Topmost});
     // While the pointer grab is active (window drag), events arrive on the
     // toplevel window instead of the drawing area.
     instance_->connectWindowSideEvents();
@@ -187,6 +198,7 @@ void DelayLauncherWindow::startCapture() {
     seconds_ = std::clamp(seconds_, 0, 3600);
     if (seconds_ <= 0) {
         hide();
+        sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
         settleBeforeCapture();
         sc::platform::x11ErrorTrapPush();
         windows::CaptureWindow::init();
@@ -220,7 +232,10 @@ void DelayLauncherWindow::onTimer(uint32_t id) {
     killTimer(kCountdownTimerId);
     counting_ = false;
     remaining_ = -1;
+    seconds_ = 0;
+    updateControls();
     hide();
+    sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
     settleBeforeCapture();
     sc::platform::x11ErrorTrapPush();
     windows::CaptureWindow::init();

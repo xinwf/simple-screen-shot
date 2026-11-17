@@ -3,17 +3,38 @@
 #include <gtk/gtk.h>
 #include <X11/Xlib.h>
 #include <map>
+#include <vector>
 
 namespace sc::platform {
 
 namespace {
-std::map<unsigned int, std::function<void()>> callbacks;
+
+constexpr unsigned int kMaskModifiers[] = {
+    0,
+    LockMask,
+    Mod2Mask,
+    LockMask | Mod2Mask
+};
+
+struct HotkeyRecord {
+    unsigned int keycode{0};
+    unsigned int modifiers{0};
+    std::function<void()> callback;
+};
+
+std::vector<HotkeyRecord> hotkeys;
 
 GdkFilterReturn eventFilter(GdkXEvent* xevent, GdkEvent*, gpointer) {
     auto* ev = static_cast<XEvent*>(xevent);
     if (ev->type == KeyPress) {
-        auto it = callbacks.find(ev->xkey.keycode);
-        if (it != callbacks.end() && it->second) it->second();
+        // Strip Caps Lock (LockMask) and Num Lock (Mod2Mask) before matching.
+        unsigned int cleanState = ev->xkey.state & (ControlMask | Mod1Mask | ShiftMask | Mod4Mask);
+        for (const auto& hk : hotkeys) {
+            if (hk.keycode == ev->xkey.keycode && hk.modifiers == cleanState) {
+                if (hk.callback) hk.callback();
+                break;
+            }
+        }
     }
     return GDK_FILTER_CONTINUE;
 }
@@ -70,18 +91,34 @@ bool GlobalShortcut::registerHotkey(const std::string& spec, std::function<void(
     // Another instance / the WM may already own this key combination. Trap X
     // errors so BadAccess degrades gracefully instead of terminating the app.
     gdk_x11_display_error_trap_push(gdk_display_get_default());
-    XGrabKey(dpy, keycode, modifiers, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(dpy, keycode, modifiers | LockMask, root, True, GrabModeAsync, GrabModeAsync);
+    for (unsigned int mask : kMaskModifiers) {
+        XGrabKey(dpy, keycode, modifiers | mask, root, True, GrabModeAsync, GrabModeAsync);
+    }
     XFlush(dpy);
     gdk_x11_display_error_trap_pop_ignored(gdk_display_get_default());
 
     nextId_++;
-    callbacks[keycode] = std::move(callback);
+    hotkeys.push_back({keycode, modifiers, std::move(callback)});
     return true;
 }
 
 void GlobalShortcut::unregisterAll() {
-    callbacks.clear();
+    GdkDisplay* gd = gdk_display_get_default();
+    if (gd) {
+        Display* dpy = GDK_DISPLAY_XDISPLAY(gd);
+        if (dpy) {
+            Window root = DefaultRootWindow(dpy);
+            gdk_x11_display_error_trap_push(gd);
+            for (const auto& hk : hotkeys) {
+                for (unsigned int mask : kMaskModifiers) {
+                    XUngrabKey(dpy, hk.keycode, hk.modifiers | mask, root);
+                }
+            }
+            XFlush(dpy);
+            gdk_x11_display_error_trap_pop_ignored(gd);
+        }
+    }
+    hotkeys.clear();
 }
 
 } // namespace sc::platform

@@ -1,7 +1,9 @@
 #include "screencapture/media/ocr_runner.h"
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <unistd.h>
 
 namespace sc::media {
 
@@ -50,7 +52,9 @@ bool OcrRunner::rapidocrAvailable(const std::string& pluginPath) {
 std::string OcrRunner::recognize(const std::shared_ptr<gfx::ImageSurface>& image,
                                  const std::string& pluginPath) {
     if (!image || !image->valid()) return {};
-    auto tmp = std::filesystem::temp_directory_path() / "sc_ocr_tmp.png";
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    auto tmp = std::filesystem::temp_directory_path() /
+               ("sc_ocr_" + std::to_string(getpid()) + "_" + std::to_string(now) + ".png");
     if (!image->saveToPng(tmp)) return {};
 
     // Build command: prefer plugin, then system tesseract. .py plugins are
@@ -70,10 +74,8 @@ std::string OcrRunner::recognize(const std::shared_ptr<gfx::ImageSurface>& image
         while (fgets(buf, sizeof(buf), pipe)) output += buf;
         pclose(pipe);
     }
-    if (pluginPath.empty()) {
-        std::error_code ec;
-        std::filesystem::remove(tmp, ec);
-    }
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
     return output;
 }
 

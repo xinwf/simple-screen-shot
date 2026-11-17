@@ -127,14 +127,15 @@ bool VideoRecorder::startMp4(const core::RectI& region, int fps, bool useSpeaker
     int h = region.height() & ~1;
     if (w < 2 || h < 2) return false;
 
-    output_ = std::filesystem::temp_directory_path() / "sc_temp.mp4";
+    const std::string pidStr = std::to_string(getpid());
+    output_ = std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp.mp4");
     std::error_code ec;
     std::filesystem::remove(output_, ec);
 
     // Audio goes through feeder processes into WAV files and is mixed onto
     // the video after stop; without usable audio sources record video-only.
     if ((useSpeaker || useMic) && launchAudioFeeders(useSpeaker, useMic)) {
-        tempPath_ = (std::filesystem::temp_directory_path() / "sc_temp_v.mp4").string();
+        tempPath_ = (std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp_v.mp4")).string();
         std::filesystem::remove(tempPath_, ec);
     } else {
         tempPath_.clear();
@@ -165,8 +166,9 @@ bool VideoRecorder::startGif(const core::RectI& region, int fps) {
     if (w < 2 || h < 2) return false;
 
     gifFps_ = std::clamp(fps, 8, 20);
-    output_ = std::filesystem::temp_directory_path() / "sc_temp.gif";
-    tempPath_ = (std::filesystem::temp_directory_path() / "sc_temp_v.mp4").string();
+    const std::string pidStr = std::to_string(getpid());
+    output_ = std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp.gif");
+    tempPath_ = (std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp_v.mp4")).string();
     std::error_code ec;
     std::filesystem::remove(output_, ec);
     std::filesystem::remove(tempPath_, ec);
@@ -241,8 +243,9 @@ bool VideoRecorder::launchAudioFeeders(bool useSpeaker, bool useMic) {
         AudioFeeder f;
         f.source = src;
         auto idx = std::to_string(audioFeeders_.size());
-        f.file = (std::filesystem::temp_directory_path() / ("sc_temp_a" + idx + ".wav")).string();
-        f.pidFile = (std::filesystem::temp_directory_path() / ("sc_temp_a" + idx + ".pid")).string();
+        const std::string pidStr = std::to_string(getpid());
+        f.file = (std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp_a" + idx + ".wav")).string();
+        f.pidFile = (std::filesystem::temp_directory_path() / ("sc_" + pidStr + "_temp_a" + idx + ".pid")).string();
         std::error_code ec;
         std::filesystem::remove(f.file, ec);
         std::filesystem::remove(f.pidFile, ec);
