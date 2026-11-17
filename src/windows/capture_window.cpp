@@ -180,6 +180,7 @@ void CaptureWindow::init() {
     dispose();
     suppressAutoQuit_ = false;
     auto* display = sc::platform::X11Display::get();
+    display->refreshMonitors();
     auto monitors = display->monitors();
     if (monitors.empty()) monitors.push_back(display->virtualDesktop());
 

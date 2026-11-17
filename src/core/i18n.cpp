@@ -106,6 +106,9 @@ void populateBuiltinZhCN(std::unordered_map<std::string, std::string>& m) {
         {"setting.hotkeyUpdated", "快捷键已更新并生效！"},
         {"setting.hotkeyFail", "快捷键注册失败（格式错误或冲突）"},
         {"setting.hotkeyReset", "已恢复默认快捷键 Ctrl+Alt+A"},
+        {"setting.hotkeyPrompt", "请按下快捷键组合直接录制（如 Ctrl+Alt+A）"},
+        {"cap.waylandHintTitle", "Wayland 会话运行提示"},
+        {"cap.waylandHintBody", "检测到当前桌面运行在 Wayland 会话下。\n\n由于 Wayland 协议的安全隔离，当焦点处于原生 Wayland 应用时，全局热键（如 Ctrl+Alt+A）可能无法被捕获。\n\n推荐方案：\n1. 在桌面系统设置 -> 键盘快捷键 中，添加自定义快捷键运行：screencapture --auto-quit=true\n2. 或通过点击顶部系统托盘图标触发截屏。"},
         {"setting.langChangedZh", "语言已切换为中文 (简体)"},
         {"setting.langChangedEn", "Language changed to English"},
     };
@@ -209,6 +212,9 @@ void populateBuiltinEnUS(std::unordered_map<std::string, std::string>& m) {
         {"setting.hotkeyUpdated", "Hotkey updated and active!"},
         {"setting.hotkeyFail", "Failed to register hotkey (invalid format or already taken)"},
         {"setting.hotkeyReset", "Default hotkey Ctrl+Alt+A restored"},
+        {"setting.hotkeyPrompt", "Press keys on keyboard to record shortcut (e.g. Ctrl+Alt+A)"},
+        {"cap.waylandHintTitle", "Wayland Session Notice"},
+        {"cap.waylandHintBody", "Running under a Wayland session.\n\nDue to Wayland security isolation, global X11 hotkeys (e.g. Ctrl+Alt+A) cannot intercept keypresses while native Wayland applications are focused.\n\nRecommended alternatives:\n1. Configure a custom shortcut in system Settings -> Keyboard Shortcuts running: screencapture --auto-quit=true\n2. Or click the system tray icon to trigger screenshot."},
         {"setting.langChangedZh", "Language switched to 中文 (简体)"},
         {"setting.langChangedEn", "Language changed to English"},
     };

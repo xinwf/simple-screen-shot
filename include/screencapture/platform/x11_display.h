@@ -8,6 +8,7 @@ class X11Display {
 public:
     static X11Display* get();
     void init();
+    void refreshMonitors();
 
     // Virtual desktop union of all monitors (desktop coordinates).
     core::RectI virtualDesktop() const noexcept { return desktop_; }

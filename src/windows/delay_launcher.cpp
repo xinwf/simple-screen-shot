@@ -171,6 +171,7 @@ void DelayLauncherWindow::init() {
     if (sc::windows::CaptureWindow::hasWindow()) return;
 
     auto* display = sc::platform::X11Display::get();
+    display->refreshMonitors();
     auto pt = display->pointerPosition();
     auto m = display->monitorAt(pt.x, pt.y);
     float left = static_cast<float>(m.left) + (static_cast<float>(m.width()) - kW) * 0.5f;
@@ -179,9 +180,6 @@ void DelayLauncherWindow::init() {
     if (instance_) {
         // Re-show an existing dialog: cancel countdown if any, reset seconds and restore controls.
         DelayCountdownOverlay::cancel();
-        instance_->killTimer(kCountdownTimerId);
-        instance_->counting_ = false;
-        instance_->remaining_ = -1;
         instance_->seconds_ = 0;
         instance_->updateControls();
         instance_->move(static_cast<int>(left), static_cast<int>(top));
@@ -299,10 +297,10 @@ void DelayLauncherWindow::onCreated() {
     minusBtn_ = makeStepper(228.f, "\xe2\x88\x92"); // U+2212 minus sign
     plusBtn_ = makeStepper(268.f, "+");
     minusBtn_->onClick.add([this](sc::ui::Button*) {
-        if (!counting_ && seconds_ > 0) { --seconds_; updateControls(); }
+        if (seconds_ > 0) { --seconds_; updateControls(); }
     });
     plusBtn_->onClick.add([this](sc::ui::Button*) {
-        if (!counting_ && seconds_ < 3600) { ++seconds_; updateControls(); }
+        if (seconds_ < 3600) { ++seconds_; updateControls(); }
     });
 
     // Primary action: start the capture (immediately, or after the countdown).
@@ -322,7 +320,6 @@ void DelayLauncherWindow::onCreated() {
 }
 
 void DelayLauncherWindow::startCapture() {
-    if (counting_) return;
     seconds_ = std::clamp(seconds_, 0, 3600);
     if (seconds_ <= 0) {
         hide();
@@ -342,42 +339,9 @@ void DelayLauncherWindow::startCapture() {
     });
 }
 
-void DelayLauncherWindow::cancelCountdown() {
-    DelayCountdownOverlay::cancel();
-    if (!counting_) return;
-    killTimer(kCountdownTimerId);
-    counting_ = false;
-    remaining_ = -1;
-    updateControls();
-}
-
-void DelayLauncherWindow::onTimer(uint32_t id) {
-    if (id != kCountdownTimerId || !counting_) return;
-    if (--remaining_ > 0) {
-        updateControls();
-        setTimer(1000, kCountdownTimerId);
-        return;
-    }
-    killTimer(kCountdownTimerId);
-    counting_ = false;
-    remaining_ = -1;
-    seconds_ = 0;
-    updateControls();
-    hide();
-    settleBeforeCapture();
-    sc::platform::x11ErrorTrapPush();
-    windows::CaptureWindow::init();
-    sc::platform::x11ErrorTrapPopIgnored();
-}
-
 void DelayLauncherWindow::onKeyDown(uint32_t key) {
     constexpr uint32_t ESC = 0xff1b;
-    if (key != ESC) return;
-    if (counting_) {
-        cancelCountdown();
-    } else {
-        hide();
-    }
+    if (key == ESC) hide();
 }
 
 void DelayLauncherWindow::onMouseDown(const core::PointF& pos, bool right) {
@@ -425,14 +389,13 @@ void DelayLauncherWindow::onMouseUp(const core::PointF& pos, bool right) {
 }
 
 void DelayLauncherWindow::updateControls() {
-    valueLabel_->setText(std::to_string(counting_ ? remaining_ : seconds_));
-    const bool counting = counting_;
-    valueLabel_->setColor(counting ? kGreen : 0x222222FF);
-    minusBtn_->visible = !counting;
-    plusBtn_->visible = !counting;
-    startBtn_->setText(counting ? fmtCountdown(remaining_) : tr("delay.start"));
-    startBtn_->setBg(counting ? 0x8FC7ADFF : kGreen);
-    startBtn_->hoverBgColor = counting ? 0x8FC7ADFF : kGreenHover;
+    valueLabel_->setText(std::to_string(seconds_));
+    valueLabel_->setColor(0x222222FF);
+    minusBtn_->visible = true;
+    plusBtn_->visible = true;
+    startBtn_->setText(tr("delay.start"));
+    startBtn_->setBg(kGreen);
+    startBtn_->hoverBgColor = kGreenHover;
     refresh();
 }
 

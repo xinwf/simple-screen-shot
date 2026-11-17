@@ -21,14 +21,12 @@ public:
 
     void onCreated() override;
     void onKeyDown(uint32_t key) override;
-    void onTimer(uint32_t id) override;
     void onMouseDown(const core::PointF& pos, bool right) override;
     void onMouseMove(const core::PointF& pos) override;
     void onMouseUp(const core::PointF& pos, bool right) override;
 
 private:
     void startCapture();
-    void cancelCountdown();
     void updateControls();
 
     // Title-area window drag state, mirroring SaveDialogWindow.
@@ -37,11 +35,8 @@ private:
     int winX0_{0}, winY0_{0};                 // window origin at drag start
 
     static std::unique_ptr<DelayLauncherWindow> instance_;
-    static constexpr uint32_t kCountdownTimerId = 1;
 
     int seconds_{0};      // configured delay, 0 = capture immediately
-    int remaining_{-1};   // >= 0 while a countdown is running
-    bool counting_{false};
     sc::ui::Label* valueLabel_{nullptr};
     sc::ui::Button* minusBtn_{nullptr};
     sc::ui::Button* plusBtn_{nullptr};

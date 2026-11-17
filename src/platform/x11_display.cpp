@@ -10,7 +10,7 @@ namespace sc::platform {
 
 X11Display* X11Display::get() { static X11Display instance; return &instance; }
 
-void X11Display::init() {
+void X11Display::refreshMonitors() {
     GdkDisplay* gd = gdk_display_get_default();
     if (!gd) return;
     int n = gdk_display_get_n_monitors(gd);
@@ -40,6 +40,19 @@ void X11Display::init() {
         int sh = gs ? gdk_screen_get_height(gs) : 1080;
         desktop_ = {0, 0, sw, sh};
         monitors_.push_back(desktop_);
+    }
+}
+
+void X11Display::init() {
+    refreshMonitors();
+    GdkScreen* gs = gdk_screen_get_default();
+    if (gs) {
+        g_signal_connect(gs, "monitors-changed", G_CALLBACK(+[](GdkScreen*, gpointer data) {
+            static_cast<X11Display*>(data)->refreshMonitors();
+        }), this);
+        g_signal_connect(gs, "size-changed", G_CALLBACK(+[](GdkScreen*, gpointer data) {
+            static_cast<X11Display*>(data)->refreshMonitors();
+        }), this);
     }
 }
 

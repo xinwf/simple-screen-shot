@@ -77,6 +77,29 @@ static void checkOcrEngine() {
     if (GdkDisplay* d = gdk_display_get_default()) gdk_display_flush(d);
 }
 
+static void checkWaylandSession() {
+    auto* cfg = core::ConfigManager::get();
+    if (cfg->getBool("common", "waylandHintHidden", false)) return;
+
+    const char* waylandDisp = std::getenv("WAYLAND_DISPLAY");
+    const char* sessionType = std::getenv("XDG_SESSION_TYPE");
+    bool isWayland = (waylandDisp && *waylandDisp) ||
+                     (sessionType && std::string(sessionType) == "wayland");
+    if (!isWayland) return;
+
+    auto* i18n = core::I18n::get();
+    bool hide = platform::showInfoDialogWithCheckbox(
+        i18n->get("cap.waylandHintTitle"),
+        i18n->get("cap.waylandHintBody"),
+        i18n->get("cap.dontRemind"));
+    if (hide) cfg->setBool("common", "waylandHintHidden", true);
+
+    while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
+    g_usleep(200 * 1000);
+    while (gtk_events_pending()) gtk_main_iteration_do(FALSE);
+    if (GdkDisplay* d = gdk_display_get_default()) gdk_display_flush(d);
+}
+
 static void setupTray() {
     auto* tray = platform::SystemTray::get();
     auto icon = findAssetFile("logo.png");
@@ -120,6 +143,7 @@ int main(int argc, char** argv) {
     core::I18n::get()->init();
     platform::X11Display::get()->init();
     registerFont();
+    checkWaylandSession();
     checkOcrEngine();
 
     // Global capture hotkey.

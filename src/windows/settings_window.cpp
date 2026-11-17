@@ -7,6 +7,8 @@
 #include "screencapture/platform/global_shortcut.h"
 #include "screencapture/platform/file_dialog.h"
 #include <gdk/gdkx.h>
+#include <gdk/gdkkeysyms.h>
+#include <cctype>
 #include <filesystem>
 
 #ifndef SC_APP_VERSION
@@ -14,6 +16,40 @@
 #endif
 
 namespace sc::windows {
+
+namespace {
+
+std::string keyNameFromVal(uint32_t key) {
+    if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z')) {
+        char c = static_cast<char>(std::toupper(static_cast<unsigned char>(key)));
+        return std::string(1, c);
+    }
+    if (key >= '0' && key <= '9') {
+        return std::string(1, static_cast<char>(key));
+    }
+    if (key >= GDK_KEY_F1 && key <= GDK_KEY_F12) {
+        return "F" + std::to_string(key - GDK_KEY_F1 + 1);
+    }
+    if (key == GDK_KEY_Print) return "Print";
+    if (key == GDK_KEY_space) return "Space";
+    return {};
+}
+
+bool isModifierKey(uint32_t key) {
+    switch (key) {
+        case GDK_KEY_Shift_L: case GDK_KEY_Shift_R:
+        case GDK_KEY_Control_L: case GDK_KEY_Control_R:
+        case GDK_KEY_Alt_L: case GDK_KEY_Alt_R:
+        case GDK_KEY_Super_L: case GDK_KEY_Super_R:
+        case GDK_KEY_Meta_L: case GDK_KEY_Meta_R:
+        case GDK_KEY_Caps_Lock: case GDK_KEY_Shift_Lock:
+            return true;
+        default:
+            return false;
+    }
+}
+
+} // namespace
 
 std::unique_ptr<SettingsWindow> SettingsWindow::instance_;
 
@@ -128,6 +164,9 @@ void SettingsWindow::focusField(sc::ui::TextBox* box) {
     if (hotkeyBox_ && hotkeyBox_ != box) hotkeyBox_->blur();
     if (dirBox_ && dirBox_ != box) dirBox_->blur();
     box->focus();
+    if (box == hotkeyBox_) {
+        setStatusMsg(sc::core::I18n::get()->get("setting.hotkeyPrompt"), 0x1677FFFF);
+    }
 }
 
 bool SettingsWindow::applyDirChanges() {
@@ -544,6 +583,43 @@ void SettingsWindow::onKeyDown(uint32_t key) {
         }
     }
 
+    if (hotkeyBox_ && hotkeyBox_->isFocused) {
+        guint mods = lastKeyModifiers();
+        if (isModifierKey(key)) {
+            std::string preview;
+            if ((mods & GDK_CONTROL_MASK) || key == GDK_KEY_Control_L || key == GDK_KEY_Control_R) preview += "Ctrl+";
+            if ((mods & GDK_MOD1_MASK) || key == GDK_KEY_Alt_L || key == GDK_KEY_Alt_R) preview += "Alt+";
+            if ((mods & GDK_SHIFT_MASK) || key == GDK_KEY_Shift_L || key == GDK_KEY_Shift_R) preview += "Shift+";
+            if ((mods & (GDK_SUPER_MASK | GDK_MOD4_MASK)) || key == GDK_KEY_Super_L || key == GDK_KEY_Super_R) preview += "Super+";
+            if (!preview.empty()) {
+                preview += "...";
+                hotkeyBox_->setText(preview);
+                refresh();
+            }
+            return;
+        }
+        constexpr uint32_t BACKSPACE_K = 0xff08;
+        constexpr uint32_t DELETE_K = 0xffff;
+        if ((key == BACKSPACE_K || key == DELETE_K) && (mods & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK)) == 0) {
+            hotkeyBox_->setText("");
+            refresh();
+            return;
+        }
+        std::string kn = keyNameFromVal(key);
+        if (!kn.empty()) {
+            std::string combo;
+            if (mods & GDK_CONTROL_MASK) combo += "Ctrl+";
+            if (mods & GDK_MOD1_MASK) combo += "Alt+";
+            if (mods & GDK_SHIFT_MASK) combo += "Shift+";
+            if (mods & (GDK_SUPER_MASK | GDK_MOD4_MASK)) combo += "Super+";
+            combo += kn;
+            hotkeyBox_->setText(combo);
+            refresh();
+            return;
+        }
+        return;
+    }
+
     if (sc::ui::TextBox* box = focusedField()) {
         constexpr uint32_t BACKSPACE_K = 0xff08;
         constexpr uint32_t DELETE_K = 0xffff;
@@ -567,6 +643,7 @@ void SettingsWindow::onKeyDown(uint32_t key) {
 }
 
 void SettingsWindow::onTextInput(const std::string& utf8) {
+    if (hotkeyBox_ && hotkeyBox_->isFocused) return;
     if (auto* box = focusedField()) {
         box->insertAtCaret(utf8);
         refresh();

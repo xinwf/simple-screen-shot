@@ -83,6 +83,21 @@ target_include_directories(sc_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(sc_tests PRIVATE -Wall -Wextra -Wno-unused-parameter -UNDEBUG)
 add_test(NAME long_stitcher COMMAND sc_tests)
 
+add_executable(sc_core_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_core.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/config_manager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/i18n.cpp
+)
+target_include_directories(sc_core_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+)
+target_compile_options(sc_core_tests PRIVATE -Wall -Wextra -Wno-unused-parameter -UNDEBUG)
+target_link_libraries(sc_core_tests PRIVATE
+    PkgConfig::GIO
+)
+add_test(NAME core_tests COMMAND sc_core_tests)
+
 # ---------------------------------------------------------------------------
 # Debian (.deb) packaging via CPack. Only used by `make install` / `cpack`;
 # the normal development build above is completely unaffected.
