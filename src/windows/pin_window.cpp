@@ -25,6 +25,80 @@ int64_t nowMs() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
+
+void drawShadowMask(cairo_t* cr, float sm, float cw, float ch) {
+    // 1. Top edge (linear gradient from outer 0% to inner 60% opacity)
+    cairo_pattern_t* patTop = cairo_pattern_create_linear(0, 0, 0, sm);
+    cairo_pattern_add_color_stop_rgba(patTop, 0.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_pattern_add_color_stop_rgba(patTop, 1.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_set_source(cr, patTop);
+    cairo_rectangle(cr, sm, 0, cw, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patTop);
+
+    // 2. Bottom edge
+    cairo_pattern_t* patBottom = cairo_pattern_create_linear(0, sm + ch, 0, sm + ch + sm);
+    cairo_pattern_add_color_stop_rgba(patBottom, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patBottom, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patBottom);
+    cairo_rectangle(cr, sm, sm + ch, cw, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patBottom);
+
+    // 3. Left edge
+    cairo_pattern_t* patLeft = cairo_pattern_create_linear(0, 0, sm, 0);
+    cairo_pattern_add_color_stop_rgba(patLeft, 0.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_pattern_add_color_stop_rgba(patLeft, 1.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_set_source(cr, patLeft);
+    cairo_rectangle(cr, 0, sm, sm, ch);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patLeft);
+
+    // 4. Right edge
+    cairo_pattern_t* patRight = cairo_pattern_create_linear(sm + cw, 0, sm + cw + sm, 0);
+    cairo_pattern_add_color_stop_rgba(patRight, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patRight, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patRight);
+    cairo_rectangle(cr, sm + cw, sm, sm, ch);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patRight);
+
+    // 5. Top-Left corner (radial gradient centered at inner corner (sm, sm))
+    cairo_pattern_t* patTL = cairo_pattern_create_radial(sm, sm, 0, sm, sm, sm);
+    cairo_pattern_add_color_stop_rgba(patTL, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patTL, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patTL);
+    cairo_rectangle(cr, 0, 0, sm, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patTL);
+
+    // 6. Top-Right corner
+    cairo_pattern_t* patTR = cairo_pattern_create_radial(sm + cw, sm, 0, sm + cw, sm, sm);
+    cairo_pattern_add_color_stop_rgba(patTR, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patTR, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patTR);
+    cairo_rectangle(cr, sm + cw, 0, sm, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patTR);
+
+    // 7. Bottom-Left corner
+    cairo_pattern_t* patBL = cairo_pattern_create_radial(sm, sm + ch, 0, sm, sm + ch, sm);
+    cairo_pattern_add_color_stop_rgba(patBL, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patBL, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patBL);
+    cairo_rectangle(cr, 0, sm + ch, sm, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patBL);
+
+    // 8. Bottom-Right corner
+    cairo_pattern_t* patBR = cairo_pattern_create_radial(sm + cw, sm + ch, 0, sm + cw, sm + ch, sm);
+    cairo_pattern_add_color_stop_rgba(patBR, 0.0, 0.0, 0.0, 0.0, 0.6);
+    cairo_pattern_add_color_stop_rgba(patBR, 1.0, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_source(cr, patBR);
+    cairo_rectangle(cr, sm + cw, sm + ch, sm, sm);
+    cairo_fill(cr);
+    cairo_pattern_destroy(patBR);
+}
 } // namespace
 
 std::vector<std::unique_ptr<PinWindow>>& PinWindow::windows() { return pinWindows; }
@@ -64,10 +138,12 @@ PinWindow* PinWindow::init(const std::shared_ptr<gfx::ImageSurface>& image, int 
     auto ptr = std::make_unique<PinWindow>(image, x, y, inPlaceAnnotate);
     auto* raw = ptr.get();
     pinWindows.push_back(std::move(ptr));
+    float sm = raw->shadowMargin();
+    int ism = static_cast<int>(std::round(sm));
     raw->create("ScreenCapture Pin",
-                core::RectF::fromXYWH(static_cast<float>(x), static_cast<float>(y),
-                                      static_cast<float>(image->width()),
-                                      static_cast<float>(image->height())),
+                core::RectF::fromXYWH(static_cast<float>(x - ism), static_cast<float>(y - ism),
+                                      static_cast<float>(image->width() + 2 * ism),
+                                      static_cast<float>(image->height() + 2 * ism)),
                 {sc::ui::WindowFlag::Topmost, sc::ui::WindowFlag::ToolWindow});
     return raw;
 }
@@ -149,12 +225,21 @@ void PinWindow::onCreated() {
     layoutTools();
 }
 
+float PinWindow::shadowMargin() const {
+    return inPlaceAnnotate_ ? 0.f : std::round(10.f * dpi);
+}
+
 void PinWindow::detachToDesktopPin() {
     if (inPlaceAnnotate_) {
         inPlaceAnnotate_ = false;
         if (toolMain_) toolMain_->cancelSelect();
         updateToolSubState();
         CaptureWindow::closeAll();
+        float sm = shadowMargin();
+        int ism = static_cast<int>(std::round(sm));
+        relocateWindow(x - ism, y - ism,
+                       static_cast<int>(std::round(width + 2.f * sm)),
+                       static_cast<int>(std::round(height + 2.f * sm)));
         raise();
         layoutTools();
         refresh();
@@ -168,7 +253,17 @@ void PinWindow::detachToDesktopPin() {
 void PinWindow::onPaint(gfx::CanvasContext& ctx) {
     if (!screenImage_) return;
     ctx.clear({0.f, 0.f, 0.f, 0.f});
+
+    float sm = shadowMargin();
+    float cw = width - 2.f * sm;
+    float ch = height - 2.f * sm;
+
+    if (!inPlaceAnnotate_ && sm > 0.f) {
+        drawShadowMask(ctx.native(), sm, cw, ch);
+    }
+
     ctx.save();
+    ctx.translate(sm, sm);
     ctx.scale(scale_, scale_);
     ctx.drawImage(*screenImage_,
                   {0, 0, static_cast<float>(screenImage_->width()),
@@ -186,21 +281,21 @@ void PinWindow::onPaint(gfx::CanvasContext& ctx) {
         // Desktop Pin mode: multi-layer high-contrast border + inner depth shadow + corner pin badge
         // 1. Outer accent blue border
         float b1 = 1.25f * dpi;
-        ctx.strokeRect({b1, b1, width - b1, height - b1},
+        ctx.strokeRect({sm + b1, sm + b1, sm + cw - b1, sm + ch - b1},
                        core::ColorRgba::fromHex(0x1677FF), 2.5f * dpi);
 
         // 2. Inner crisp white border for strong contrast on dark or colorful backgrounds
         float b2 = 2.75f * dpi;
-        ctx.strokeRect({b2, b2, width - b2, height - b2},
+        ctx.strokeRect({sm + b2, sm + b2, sm + cw - b2, sm + ch - b2},
                        core::ColorRgba::fromRgbaHex(0xFFFFFFE0), 1.5f * dpi);
 
         // 3. Subtle inner shadow line
         float b3 = 4.f * dpi;
-        ctx.strokeRect({b3, b3, width - b3, height - b3},
+        ctx.strokeRect({sm + b3, sm + b3, sm + cw - b3, sm + ch - b3},
                        core::ColorRgba::fromRgbaHex(0x00000030), 1.f * dpi);
 
         // 4. Pin badge in top-left corner
-        if (width >= 60.f * dpi && height >= 35.f * dpi) {
+        if (cw >= 60.f * dpi && ch >= 35.f * dpi) {
             std::string badgeText = "\xf0\x9f\x93\x8c " + sc::core::I18n::get()->get("cap.pin");
             gfx::TextLayout badgeLayout(badgeText, 10.f * dpi, 500.f, 50.f, "Sans Bold");
             auto bm = badgeLayout.metrics();
@@ -208,8 +303,8 @@ void PinWindow::onPaint(gfx::CanvasContext& ctx) {
             float padY = 3.f * dpi;
             float bw = bm.width + padX * 2.f;
             float bh = bm.height + padY * 2.f;
-            float bx = 6.f * dpi;
-            float by = 6.f * dpi;
+            float bx = sm + 6.f * dpi;
+            float by = sm + 6.f * dpi;
             core::RectF badgeRect = core::RectF::fromXYWH(bx, by, bw, bh);
             ctx.fillRoundedRect(badgeRect, 4.f * dpi, core::ColorRgba::fromRgbaHex(0x1E1E1EE0));
             ctx.strokeRoundedRect(badgeRect, 4.f * dpi, core::ColorRgba::fromRgbaHex(0xFFFFFF40), 1.f * dpi);
@@ -224,8 +319,8 @@ void PinWindow::onPaint(gfx::CanvasContext& ctx) {
         auto tm = tl.metrics();
         float tw = tm.width + 16.f * dpi;
         float th = tm.height + 10.f * dpi;
-        float tx = (width - tw) * 0.5f;
-        float ty = (height - th) * 0.5f;
+        float tx = sm + (cw - tw) * 0.5f;
+        float ty = sm + (ch - th) * 0.5f;
         ctx.fillRoundedRect(core::RectF::fromXYWH(tx, ty, tw, th), 5.f * dpi,
                             core::ColorRgba::fromRgbaHex(0x1E1E1EDD));
         ctx.drawText(tx + 8.f * dpi, ty + 5.f * dpi, tl, core::ColorRgba::fromHex(0xFFFFFF));
@@ -233,7 +328,8 @@ void PinWindow::onPaint(gfx::CanvasContext& ctx) {
 }
 
 core::PointF PinWindow::toImgPos(const core::PointF& pos) const {
-    return {pos.x / scale_, pos.y / scale_};
+    float sm = shadowMargin();
+    return {(pos.x - sm) / scale_, (pos.y - sm) / scale_};
 }
 
 void PinWindow::onMouseDown(const core::PointF& screenPos, bool right) {
@@ -389,14 +485,17 @@ void PinWindow::onMouseWheel(const core::PointF& pos, int delta) {
         int maxDim = std::max(screenImage_->width(), screenImage_->height());
         float maxScale = std::max(1.f, std::min(8.f, 16000.f / maxDim));
         scale_ = std::clamp(next, 0.1f, maxScale);
-        resize(static_cast<uint32_t>(screenImage_->width() * scale_),
-               static_cast<uint32_t>(screenImage_->height() * scale_));
+        float sm = shadowMargin();
+        uint32_t newW = static_cast<uint32_t>(std::max(1.f, std::round(screenImage_->width() * scale_ + 2.f * sm)));
+        uint32_t newH = static_cast<uint32_t>(std::max(1.f, std::round(screenImage_->height() * scale_ + 2.f * sm)));
+        resize(newW, newH);
         layoutTools();
         showScaleTip_ = true;
         setTimer(1200, kScaleTipTimer);
         refresh();
     } else if (shapeHover_) {
-        shapeHover_->mouseWheel(pos.x / scale_, pos.y / scale_, delta);
+        auto imgPos = toImgPos(pos);
+        shapeHover_->mouseWheel(imgPos.x, imgPos.y, delta);
         if (toolSub_ && toolSub_->hasContent() && toolMain_) {
             toolSub_->syncSliderFromWheel(toolMain_->currentTool(),
                                           sliderValue(toolMain_->currentTool()));
@@ -548,15 +647,21 @@ void PinWindow::layoutTools() {
     bool showSub = toolSub_ && !toolMain_->currentTool().empty() && toolSub_->hasContent();
     float usedH = showSub ? groupH : mainH;
 
-    int ty = y + static_cast<int>(height) + static_cast<int>(gap);
+    float sm = shadowMargin();
+    float contentX = static_cast<float>(x) + sm;
+    float contentY = static_cast<float>(y) + sm;
+    float contentW = width - 2.f * sm;
+    float contentH = height - 2.f * sm;
+
+    int ty = static_cast<int>(std::round(contentY + contentH + sm + gap));
     if (ty + static_cast<int>(groupH) > mon.bottom) {
-        if (y - static_cast<int>(gap) - static_cast<int>(groupH) >= mon.top) {
-            ty = y - static_cast<int>(gap) - static_cast<int>(usedH);
+        if (contentY - sm - gap - groupH >= mon.top) {
+            ty = static_cast<int>(std::round(contentY - sm - gap - usedH));
         } else {
-            ty = y + static_cast<int>(height) - static_cast<int>(gap) - static_cast<int>(usedH);
+            ty = static_cast<int>(std::round(contentY + contentH - gap - usedH));
         }
     }
-    int tx = x + static_cast<int>(width - toolMain_->width);
+    int tx = static_cast<int>(std::round(contentX + contentW - toolMain_->width));
     tx = std::max(mon.left, std::min(tx, mon.right - static_cast<int>(toolMain_->width)));
     ty = std::max(mon.top, std::min(ty, mon.bottom - static_cast<int>(usedH)));
 

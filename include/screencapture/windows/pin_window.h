@@ -56,6 +56,7 @@ public:
     sc::shapes::ShapeText* editingText() const override { return editingText_; }
     void setCursorHint(int hint) override;
     void postTask(std::function<void()> fn) override;
+    float shadowMargin() const;
 
 private:
     core::PointF toImgPos(const core::PointF& pos) const;
