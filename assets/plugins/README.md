@@ -4,7 +4,7 @@
 
 1. **RapidOCR**（推荐，PP-OCRv5 模型，中文识别效果远好于 tesseract）
    ```bash
-   pip install rapidocr        # 或 pip3 install --user rapidocr
+   pip install rapidocr onnxruntime        # 或 pip3 install --user rapidocr onnxruntime
    ```
    首次运行会联网下载模型文件到本地缓存，之后完全离线。如需在无网机器上使用，
    可先在联网机器上运行一次识别，然后把模型缓存目录（`~/.cache/` 或
