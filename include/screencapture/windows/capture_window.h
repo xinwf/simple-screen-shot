@@ -19,6 +19,7 @@ enum class CapStage { Select, Adjust, Annotate, Long, Video };
 
 class CaptureWindow : public sc::ui::BaseWindow {
 public:
+    ~CaptureWindow() override;
     static void init();
     static CaptureWindow* get();
     static void dispose();

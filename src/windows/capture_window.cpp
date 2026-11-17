@@ -154,7 +154,8 @@ static std::string resolveOcrPlugin() {
 }
 
 void CaptureWindow::init() {
-    if (!instances_.empty()) return;
+    if (hasWindow()) return;
+    dispose();
     suppressAutoQuit_ = false;
     auto* display = sc::platform::X11Display::get();
     auto monitors = display->monitors();
@@ -214,16 +215,39 @@ CaptureWindow* CaptureWindow::get() {
     return instances_.front().get();
 }
 
+CaptureWindow::~CaptureWindow() {
+    closeAllTools();
+}
+
 void CaptureWindow::dispose() {
+    for (auto& w : instances_) {
+        if (w && !w->closed_) {
+            w->closed_ = true;
+            w->close();
+        }
+    }
     instances_.clear();
 }
 
-bool CaptureWindow::hasWindow() { return !instances_.empty(); }
+bool CaptureWindow::hasWindow() {
+    for (const auto& w : instances_) {
+        if (w && !w->closed_ && w->native() != nullptr) {
+            return true;
+        }
+    }
+    return false;
+}
 
 void CaptureWindow::closeAll() {
     for (auto& w : instances_) {
-        if (w && !w->closed_) w->close();
+        if (w && !w->closed_) {
+            w->closed_ = true;
+            w->close();
+        }
     }
+    sc::core::AppContext::get()->postTask([] {
+        dispose();
+    });
 }
 
 void CaptureWindow::setOverlaysVisible(bool visible) {
@@ -636,10 +660,12 @@ void CaptureWindow::onDestroy() {
     if (toolVideo_) toolVideo_->hide();
     auto* self = this;
     sc::core::AppContext::get()->postTask([self]() {
-        self->closeAllTools();
         auto it = std::find_if(instances_.begin(), instances_.end(),
             [self](const auto& p) { return p.get() == self; });
-        if (it != instances_.end()) instances_.erase(it);
+        if (it != instances_.end()) {
+            self->closeAllTools();
+            instances_.erase(it);
+        }
         if (!suppressAutoQuit_ && instances_.empty() &&
             !sc::windows::PinWindow::hasWindow() &&
             sc::core::AppContext::get()->autoQuit()) {

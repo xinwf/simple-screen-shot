@@ -75,7 +75,17 @@ void SaveDialogWindow::open(std::shared_ptr<gfx::ImageSurface> image, bool quitW
     instance_->grabKeyboardFocus();
 }
 
-void SaveDialogWindow::dispose() { instance_.reset(); }
+void SaveDialogWindow::dispose() {
+    if (instance_) {
+        if (instance_->dragging_) {
+            instance_->dragging_ = false;
+            if (GdkSeat* seat = gdk_display_get_default_seat(gdk_display_get_default())) {
+                gdk_seat_ungrab(seat);
+            }
+        }
+        instance_.reset();
+    }
+}
 
 void SaveDialogWindow::onCreated() {
     const float nameY = 52.f + previewH_ + 10.f;
@@ -280,6 +290,7 @@ void SaveDialogWindow::finish(bool saved) {
     app->postTask([quit] {
         SaveDialogWindow::dispose();
         CaptureWindow::closeAll();
+        CaptureWindow::dispose();
         PinWindow::dispose();
         if (quit) sc::core::AppContext::get()->quit(0);
     });

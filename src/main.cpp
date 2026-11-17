@@ -146,6 +146,7 @@ int main(int argc, char** argv) {
         platform::GlobalShortcut::get()->unregisterAll();
         platform::clearInstancePid();
         platform::SystemTray::get()->dispose();
+        windows::DelayLauncherWindow::dispose();
         windows::CaptureWindow::dispose();
         windows::PinWindow::dispose();
         windows::SettingsWindow::dispose();

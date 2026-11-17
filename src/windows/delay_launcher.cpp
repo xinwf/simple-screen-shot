@@ -203,11 +203,24 @@ void DelayLauncherWindow::init() {
     // While the pointer grab is active (window drag), events arrive on the
     // toplevel window instead of the drawing area.
     instance_->connectWindowSideEvents();
+    instance_->show();
+    instance_->raise();
+    if (instance_->native()) {
+        gtk_window_present(GTK_WINDOW(instance_->native()));
+    }
     instance_->grabKeyboardFocus();
 }
 
 void DelayLauncherWindow::dispose() {
-    instance_.reset();
+    if (instance_) {
+        if (instance_->dragging_) {
+            instance_->dragging_ = false;
+            if (GdkSeat* seat = gdk_display_get_default_seat(gdk_display_get_default())) {
+                gdk_seat_ungrab(seat);
+            }
+        }
+        instance_.reset();
+    }
 }
 
 void DelayLauncherWindow::onCreated() {
@@ -240,7 +253,7 @@ void DelayLauncherWindow::onCreated() {
     closeBtn->setBorderRadius(6.f);
     closeBtn->hoverBgColor = 0xEDEDEDFF;
     closeBtn->onClick.add([](sc::ui::Button*) {
-        sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
+        if (instance_) instance_->hide();
     });
 
     auto* divider = body->makeChild<sc::ui::WidgetNode>();
@@ -313,7 +326,6 @@ void DelayLauncherWindow::startCapture() {
     seconds_ = std::clamp(seconds_, 0, 3600);
     if (seconds_ <= 0) {
         hide();
-        sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
         settleBeforeCapture();
         sc::platform::x11ErrorTrapPush();
         windows::CaptureWindow::init();
@@ -322,7 +334,6 @@ void DelayLauncherWindow::startCapture() {
     }
     int sec = seconds_;
     hide();
-    sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
     DelayCountdownOverlay::start(sec, [] {
         settleBeforeCapture();
         sc::core::AppContext::get()->postTask([] {
@@ -353,7 +364,6 @@ void DelayLauncherWindow::onTimer(uint32_t id) {
     seconds_ = 0;
     updateControls();
     hide();
-    sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
     settleBeforeCapture();
     sc::platform::x11ErrorTrapPush();
     windows::CaptureWindow::init();
@@ -366,8 +376,7 @@ void DelayLauncherWindow::onKeyDown(uint32_t key) {
     if (counting_) {
         cancelCountdown();
     } else {
-        // Deferred so we don't destroy this window inside its own event handler.
-        sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
+        hide();
     }
 }
 
