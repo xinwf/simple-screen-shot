@@ -289,7 +289,15 @@ void VideoRecorder::muxAudio() {
     cmd += " \"" + output_.string() + "\"";
     runAndDrain(cmd);
 
-    if (!outputValid()) std::filesystem::remove(output_, ec);
+    if (!outputValid()) {
+        // Fallback: smooth degradation to video-only if audio mixing failed,
+        // ensuring the user's recorded footage is never lost.
+        std::filesystem::remove(output_, ec);
+        std::filesystem::rename(tempPath_, output_, ec);
+        if (ec) {
+            std::filesystem::copy_file(tempPath_, output_, std::filesystem::copy_options::overwrite_existing, ec);
+        }
+    }
     std::filesystem::remove(tempPath_, ec);
     for (const auto& f : audioFeeders_) std::filesystem::remove(f.file, ec);
     audioFeeders_.clear();

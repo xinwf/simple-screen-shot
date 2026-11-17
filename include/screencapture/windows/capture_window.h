@@ -2,6 +2,7 @@
 #include "screencapture/ui/base_window.h"
 #include "screencapture/windows/cut_mask.h"
 #include "screencapture/gfx/image_surface.h"
+#include "screencapture/gfx/text_layout.h"
 #include "screencapture/media/long_stitcher.h"
 #include "screencapture/media/video_recorder.h"
 #include <memory>
@@ -12,6 +13,7 @@ namespace sc::windows {
 class ToolCap;
 class ToolLong;
 class ToolVideo;
+class VideoCountdownWindow;
 
 enum class CapStage { Select, Adjust, Annotate, Long, Video };
 
@@ -85,6 +87,13 @@ private:
     // Video recording state.
     std::unique_ptr<sc::media::VideoRecorder> videoRecorder_;
     int videoElapsedSec_{0};
+    std::unique_ptr<VideoCountdownWindow> countdownWindow_;
+
+    // Magnifier cached text layouts
+    std::unique_ptr<gfx::TextLayout> magText1_;
+    std::unique_ptr<gfx::TextLayout> magText2_;
+    std::unique_ptr<gfx::TextLayout> magText3_;
+    float magDpi_{0.f};
 };
 
 } // namespace sc::windows

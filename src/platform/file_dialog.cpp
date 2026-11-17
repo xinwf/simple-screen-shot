@@ -1,4 +1,5 @@
 #include "screencapture/platform/file_dialog.h"
+#include "screencapture/core/config_manager.h"
 #include "screencapture/core/i18n.h"
 #include <chrono>
 #include <cstdio>
@@ -29,6 +30,10 @@ std::filesystem::path FileDialog::saveImage(const std::string& ext, GtkWindow* p
     GtkFileChooserNative* dialog = gtk_file_chooser_native_new(
         title.c_str(), parent, GTK_FILE_CHOOSER_ACTION_SAVE, saveBtn.c_str(), cancelBtn.c_str());
     gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
+    auto saveDir = core::ConfigManager::get()->getSaveDir();
+    if (!saveDir.empty() && std::filesystem::exists(saveDir)) {
+        gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), saveDir.c_str());
+    }
     auto defaultName = createFileName(ext);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), defaultName.c_str());
 

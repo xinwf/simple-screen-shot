@@ -58,6 +58,19 @@ public:
     void setLang(const std::string& code) { setString("common", "language", code); }
     bool getAutoStart() const { return getBool("common", "autoStart", false); }
     void setAutoStart(bool v) { setBool("common", "autoStart", v); }
+    std::string getSaveDir() const {
+        std::string def;
+        const char* home = std::getenv("HOME");
+        if (home) {
+            auto p = std::filesystem::path(home) / "Pictures";
+            if (std::filesystem::exists(p)) def = p.string();
+            else def = home;
+        }
+        return getString("common", "saveDir", def);
+    }
+    void setSaveDir(const std::string& path) {
+        setString("common", "saveDir", path);
+    }
     std::string getShortcutKey(const std::string& name = "cap") const {
         return getString("shortcutKey", name, "Ctrl+Alt+A");
     }

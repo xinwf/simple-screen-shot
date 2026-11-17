@@ -71,6 +71,52 @@ void onFileClipboardClear(GtkClipboard* /*cb*/, gpointer data) {
     delete static_cast<FileClipboardContext*>(data);
 }
 
+void cleanOldClips(const std::filesystem::path& clipDir) {
+    std::error_code ec;
+    if (!std::filesystem::exists(clipDir, ec)) return;
+
+    struct ClipEntry {
+        std::filesystem::path path;
+        std::filesystem::file_time_type mtime;
+        uintmax_t size{0};
+    };
+    std::vector<ClipEntry> entries;
+
+    const auto now = std::filesystem::file_time_type::clock::now();
+    constexpr auto kMaxAge = std::chrono::hours(24 * 3);    // Auto-clean clips older than 3 days
+    constexpr uintmax_t kMaxTotalBytes = 150 * 1024 * 1024; // Cap total clip cache to 150 MB
+    constexpr size_t kMaxCount = 20;                        // Retain at most 20 recent clips
+
+    uintmax_t totalBytes = 0;
+
+    for (const auto& it : std::filesystem::directory_iterator(clipDir, ec)) {
+        if (!it.is_regular_file(ec)) continue;
+        auto mtime = it.last_write_time(ec);
+        auto sz = it.file_size(ec);
+        if (ec) continue;
+
+        if (now - mtime > kMaxAge) {
+            std::filesystem::remove(it.path(), ec);
+            continue;
+        }
+
+        totalBytes += sz;
+        entries.push_back({it.path(), mtime, sz});
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const ClipEntry& a, const ClipEntry& b) {
+        return a.mtime > b.mtime;
+    });
+
+    while (entries.size() > kMaxCount || totalBytes > kMaxTotalBytes) {
+        if (entries.empty()) break;
+        const auto& oldest = entries.back();
+        std::filesystem::remove(oldest.path, ec);
+        totalBytes = (totalBytes > oldest.size) ? (totalBytes - oldest.size) : 0;
+        entries.pop_back();
+    }
+}
+
 std::filesystem::path preparePersistentClipFile(const std::filesystem::path& srcPath, const std::string& prefix, const std::string& ext) {
     std::time_t t = std::time(nullptr);
     std::tm tm{};
@@ -85,6 +131,9 @@ std::filesystem::path preparePersistentClipFile(const std::filesystem::path& src
     std::filesystem::path clipDir = std::filesystem::path(g_get_user_cache_dir()) / "screencapture" / "clips";
     std::error_code ec;
     std::filesystem::create_directories(clipDir, ec);
+
+    // Auto-prune stale or excessive clips before adding the new clip
+    cleanOldClips(clipDir);
 
     std::filesystem::path dst = clipDir / buf;
     std::filesystem::copy_file(srcPath, dst, std::filesystem::copy_options::overwrite_existing, ec);
@@ -121,8 +170,10 @@ void ClipboardService::setImage(const std::shared_ptr<gfx::ImageSurface>& image)
     image->flush();
     const int w = static_cast<int>(image->width());
     const int h = static_cast<int>(image->height());
+    if (w <= 0 || h <= 0) return;
     const int stride = image->stride();
     const uint8_t* src = image->data();
+    if (!src) return;
 
     GdkPixbuf* pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
     if (!pixbuf) return;
@@ -154,9 +205,8 @@ void ClipboardService::setImage(const std::shared_ptr<gfx::ImageSurface>& image)
     if (image->saveToPng(tmpPng)) {
         std::string cmd = "sh -c 'if command -v xclip >/dev/null 2>&1; then "
                           "xclip -selection clipboard -t image/png -i \"" +
-                          tmpPng.string() + "\" >/dev/null 2>&1 & fi'";
-        int rc = std::system(cmd.c_str());
-        (void)rc;
+                          tmpPng.string() + "\" >/dev/null 2>&1; fi'";
+        g_spawn_command_line_async(cmd.c_str(), nullptr);
     }
     pumpGtkEvents();
 }

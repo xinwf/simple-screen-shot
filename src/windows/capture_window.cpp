@@ -47,6 +47,92 @@ static void showInfoDialog(const std::string& title, const std::string& message)
     gtk_widget_destroy(dlg);
 }
 
+// Independent lightweight topmost HUD overlay for the 3-2-1 recording countdown.
+// Kept separate from the full-screen CaptureWindow so it never interferes with
+// XShape hole punching or window compositing on Mutter / X11.
+class VideoCountdownWindow : public sc::ui::BaseWindow {
+public:
+    VideoCountdownWindow(std::function<void()> onComplete, std::function<void()> onCancel)
+        : onComplete_(std::move(onComplete)), onCancel_(std::move(onCancel)) {}
+
+    void start(const core::RectF& centerBounds) {
+        remaining_ = 3;
+        constexpr float kW = 130.f, kH = 130.f;
+        float left = centerBounds.left + (centerBounds.width() - kW) * 0.5f;
+        float top = centerBounds.top + (centerBounds.height() - kH) * 0.5f;
+        create("Countdown", core::RectF::fromXYWH(left, top, kW, kH),
+               {sc::ui::WindowFlag::Topmost, sc::ui::WindowFlag::ToolWindow, sc::ui::WindowFlag::NoActivate});
+        if (native() && gtk_widget_get_realized(native())) {
+            Display* dpy = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+            GdkWindow* gw = gtk_widget_get_window(native());
+            if (dpy && gw) {
+                Window xw = GDK_WINDOW_XID(gw);
+                XRaiseWindow(dpy, xw);
+                XFlush(dpy);
+            }
+        }
+        setTimer(1000, 100);
+        refresh();
+    }
+
+    void cancel() {
+        killTimer(100);
+        auto cancelFn = std::move(onCancel_);
+        close();
+        if (cancelFn) cancelFn();
+    }
+
+    void onTimer(uint32_t id) override {
+        if (id == 100) {
+            --remaining_;
+            if (remaining_ > 0) {
+                refresh();
+                setTimer(1000, 100);
+            } else {
+                killTimer(100);
+                auto done = std::move(onComplete_);
+                close();
+                if (done) done();
+            }
+        }
+    }
+
+    void onPaint(gfx::CanvasContext& ctx) override {
+        ctx.clear({0.f, 0.f, 0.f, 0.f});
+        core::RectF card = core::RectF::fromXYWH(2.f * dpi, 2.f * dpi, width - 4.f * dpi, height - 4.f * dpi);
+        ctx.fillRoundedRect(card, 16.f * dpi, core::ColorRgba::fromRgbaHex(0x18181880));
+        ctx.strokeRoundedRect(card, 16.f * dpi, core::ColorRgba::fromRgbaHex(0xFF4D4FA0), 2.f * dpi);
+
+        std::string numStr = std::to_string(remaining_);
+        gfx::TextLayout num(numStr, 48.f * dpi, 1000.f, 1000.f, "Sans Bold");
+        auto m = num.metrics();
+        ctx.drawText((width - m.width) * 0.5f,
+                     (height - m.height) * 0.5f - 12.f * dpi,
+                     num, core::ColorRgba::fromHex(0xFFFFFF));
+
+        std::string escStr = (sc::core::I18n::get()->language() == "en-US") ? "Esc / Click Cancel" : "Esc / 单击 取消";
+        gfx::TextLayout hint(escStr, 11.f * dpi);
+        auto hm = hint.metrics();
+        ctx.drawText((width - hm.width) * 0.5f,
+                     height - hm.height - 12.f * dpi,
+                     hint, core::ColorRgba::fromRgbaHex(0xFFFFFFB0));
+    }
+
+    void onKeyDown(uint32_t key) override {
+        constexpr uint32_t ESC = 0xff1b;
+        if (key == ESC) cancel();
+    }
+
+    void onMouseDown(const core::PointF&, bool) override {
+        cancel();
+    }
+
+private:
+    int remaining_{3};
+    std::function<void()> onComplete_;
+    std::function<void()> onCancel_;
+};
+
 // Resolve the OCR plugin: explicit config override, then the bundled RapidOCR
 // plugin — dev layout next to the executable, system layout under share/
 // (/usr/bin/screencapture + /usr/share/simplescreenshot/assets).
@@ -188,33 +274,29 @@ void CaptureWindow::paintMagnifier(gfx::CanvasContext& ctx, const core::PointF& 
     core::RectF card = core::RectF::fromXYWH(bx, by, boxW, boxH);
     ctx.fillRoundedRect(card, 6.f * dpi, core::ColorRgba::fromRgbaHex(0x1E1E1EE8));
 
-    const int zoom = 5;
-    const int halfCols = static_cast<int>(boxW / (zoom * 2));
-    const int halfRows = static_cast<int>(previewH / (zoom * 2));
+    const float zoom = 5.f;
     const int cx = std::clamp(static_cast<int>(pos.x), 0, static_cast<int>(screenImage_->width()) - 1);
     const int cy = std::clamp(static_cast<int>(pos.y), 0, static_cast<int>(screenImage_->height()) - 1);
 
     const uint8_t* data = screenImage_->data();
     const int stride = screenImage_->stride();
 
+    // Fast path: hardware-accelerated nearest-neighbor blit from screen image
+    // instead of ~465 vector rect fills per motion frame.
     ctx.save();
     cairo_rectangle(ctx.native(), bx + 1.f, by + 1.f, boxW - 2.f, previewH - 1.f);
     cairo_clip(ctx.native());
-    for (int dy = -halfRows; dy <= halfRows; ++dy) {
-        for (int dx = -halfCols; dx <= halfCols; ++dx) {
-            int sx = std::clamp(cx + dx, 0, static_cast<int>(screenImage_->width()) - 1);
-            int sy = std::clamp(cy + dy, 0, static_cast<int>(screenImage_->height()) - 1);
-            const uint8_t* px = data + sy * stride + sx * 4;
-            core::ColorRgba c{px[2] / 255.f, px[1] / 255.f, px[0] / 255.f, 1.f};
-            float rx = bx + boxW * 0.5f + dx * zoom - zoom * 0.5f;
-            float ry = by + previewH * 0.5f + dy * zoom - zoom * 0.5f;
-            ctx.fillRect(core::RectF::fromXYWH(rx, ry, static_cast<float>(zoom), static_cast<float>(zoom)), c);
-        }
-    }
+    cairo_translate(ctx.native(), bx + boxW * 0.5f, by + previewH * 0.5f);
+    cairo_scale(ctx.native(), zoom, zoom);
+    cairo_translate(ctx.native(), -static_cast<double>(cx) - 0.5, -static_cast<double>(cy) - 0.5);
+    cairo_set_source_surface(ctx.native(), screenImage_->native(), 0, 0);
+    cairo_pattern_set_filter(cairo_get_source(ctx.native()), CAIRO_FILTER_NEAREST);
+    cairo_paint(ctx.native());
+    ctx.restore();
+
     auto crossColor = core::ColorRgba::fromRgbaHex(0x1677FFCC);
     ctx.fillRect(core::RectF::fromXYWH(bx + 2.f, by + previewH * 0.5f - 1.f, boxW - 4.f, 2.f), crossColor);
     ctx.fillRect(core::RectF::fromXYWH(bx + boxW * 0.5f - 1.f, by + 2.f, 2.f, previewH - 4.f), crossColor);
-    ctx.restore();
 
     ctx.strokeRect(core::RectF::fromXYWH(bx, by, boxW, previewH), core::ColorRgba::fromRgbaHex(0xFFFFFF44), 1.f);
     ctx.strokeRoundedRect(card, 6.f * dpi, core::ColorRgba::fromRgbaHex(0xFFFFFF55), 1.f);
@@ -226,12 +308,18 @@ void CaptureWindow::paintMagnifier(gfx::CanvasContext& ctx, const core::PointF& 
     std::snprintf(line2, sizeof(line2), "RGB (%d,%d,%d) #%02X%02X%02X", r, g, b, r, g, b);
     std::snprintf(line3, sizeof(line3), "Ctrl+R/H/P 复制");
 
-    gfx::TextLayout t1(line1, 8.5f * dpi);
-    gfx::TextLayout t2(line2, 8.5f * dpi);
-    gfx::TextLayout t3(line3, 8.0f * dpi);
-    ctx.drawText(bx + 6.f * dpi, by + previewH + 4.f * dpi, t1, core::ColorRgba::fromHex(0xFFFFFF));
-    ctx.drawText(bx + 6.f * dpi, by + previewH + 20.f * dpi, t2, core::ColorRgba::fromHex(0x91CAFF));
-    ctx.drawText(bx + 6.f * dpi, by + previewH + 36.f * dpi, t3, core::ColorRgba::fromHex(0xBBBBBB));
+    if (!magText1_ || magDpi_ != dpi) {
+        magDpi_ = dpi;
+        magText1_ = std::make_unique<gfx::TextLayout>("", 8.5f * dpi);
+        magText2_ = std::make_unique<gfx::TextLayout>("", 8.5f * dpi);
+        magText3_ = std::make_unique<gfx::TextLayout>("", 8.0f * dpi);
+    }
+    magText1_->setText(line1);
+    magText2_->setText(line2);
+    magText3_->setText(line3);
+    ctx.drawText(bx + 6.f * dpi, by + previewH + 4.f * dpi, *magText1_, core::ColorRgba::fromHex(0xFFFFFF));
+    ctx.drawText(bx + 6.f * dpi, by + previewH + 20.f * dpi, *magText2_, core::ColorRgba::fromHex(0x91CAFF));
+    ctx.drawText(bx + 6.f * dpi, by + previewH + 36.f * dpi, *magText3_, core::ColorRgba::fromHex(0xBBBBBB));
 }
 
 void CaptureWindow::onPaint(gfx::CanvasContext& ctx) {
@@ -444,6 +532,10 @@ void CaptureWindow::onKeyDown(uint32_t key) {
     if (key == GDK_ESCAPE) {
         if (stage_ == CapStage::Long) killTimer(kScrollMsg);
         if (stage_ == CapStage::Video) {
+            if (countdownWindow_) {
+                countdownWindow_->cancel();
+                countdownWindow_.reset();
+            }
             killTimer(kVideoTickMsg);
             if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->cancel();
         }
@@ -530,6 +622,10 @@ void CaptureWindow::onDestroy() {
     closed_ = true;
     killTimer(kScrollMsg);
     killTimer(kVideoTickMsg);
+    if (countdownWindow_) {
+        countdownWindow_->close();
+        countdownWindow_.reset();
+    }
     // Tool windows must be destroyed on the next idle, not here: they may be
     // the very windows whose button handler is on the GTK dispatch stack
     // (e.g. the video toolbar's discard button), and destroying a widget
@@ -778,36 +874,63 @@ void CaptureWindow::startVideo() {
     toolVideo_ = std::make_unique<ToolVideo>();
     toolVideo_->onAction = [this](const std::string& act) {
         if (act == "start") {
-            if (!videoRecorder_) videoRecorder_ = std::make_unique<sc::media::VideoRecorder>();
-            auto region = cutRectScreen();
-            // Inset by 2px so the red recording frame is not recorded into the video
-            region.left += 2;
-            region.top += 2;
-            region.right -= 2;
-            region.bottom -= 2;
-            bool ok = toolVideo_->isMp4()
-                ? videoRecorder_->startMp4(region, 30, toolVideo_->useSpeaker(), toolVideo_->useMic())
-                : videoRecorder_->startGif(region, 15);
-            if (ok) {
-                videoElapsedSec_ = 0;
-                toolVideo_->showRecording(true);
-                layoutTool(toolVideo_.get());
-                setTimer(1000, kVideoTickMsg);
-            } else {
+            if (countdownWindow_ || (videoRecorder_ && videoRecorder_->recording())) return;
+            if (!sc::media::VideoRecorder::ffmpegAvailable()) {
                 if (toolVideo_) toolVideo_->hide();
                 hide();
                 auto i18n = sc::core::I18n::get();
-                showInfoDialog(i18n->get("about.sysTip"),
-                               sc::media::VideoRecorder::ffmpegAvailable()
-                                   ? i18n->get("video.recordFailed")
-                                   : i18n->get("video.ffmpegMissing"));
+                showInfoDialog(i18n->get("about.sysTip"), i18n->get("video.ffmpegMissing"));
                 closeAll();
+                return;
             }
+
+            auto r = cutRectScreen();
+            core::RectF centerRect = core::RectF::fromXYWH(
+                static_cast<float>(r.left), static_cast<float>(r.top),
+                static_cast<float>(r.width()), static_cast<float>(r.height()));
+
+            countdownWindow_ = std::make_unique<VideoCountdownWindow>(
+                [this]() {
+                    countdownWindow_.reset();
+                    if (!videoRecorder_) videoRecorder_ = std::make_unique<sc::media::VideoRecorder>();
+                    auto region = cutRectScreen();
+                    // Inset by 2px so the red recording frame is not recorded into the video
+                    region.left += 2;
+                    region.top += 2;
+                    region.right -= 2;
+                    region.bottom -= 2;
+                    bool ok = toolVideo_->isMp4()
+                        ? videoRecorder_->startMp4(region, 30, toolVideo_->useSpeaker(), toolVideo_->useMic())
+                        : videoRecorder_->startGif(region, 15);
+                    if (ok) {
+                        videoElapsedSec_ = 0;
+                        toolVideo_->showRecording(true);
+                        layoutTool(toolVideo_.get());
+                        setTimer(1000, kVideoTickMsg);
+                    } else {
+                        if (toolVideo_) toolVideo_->hide();
+                        hide();
+                        auto i18n = sc::core::I18n::get();
+                        showInfoDialog(i18n->get("about.sysTip"),
+                                       sc::media::VideoRecorder::ffmpegAvailable()
+                                           ? i18n->get("video.recordFailed")
+                                           : i18n->get("video.ffmpegMissing"));
+                        closeAll();
+                    }
+                },
+                [this]() {
+                    countdownWindow_.reset();
+                }
+            );
+            countdownWindow_->start(centerRect);
         } else if (act == "stop" || act == "save") {
+            if (countdownWindow_) { countdownWindow_->close(); countdownWindow_.reset(); }
             stopAndSaveVideo(false);
         } else if (act == "clipboard") {
+            if (countdownWindow_) { countdownWindow_->close(); countdownWindow_.reset(); }
             stopAndSaveVideo(true);
         } else if (act == "close" || act == "discard") {
+            if (countdownWindow_) { countdownWindow_->close(); countdownWindow_.reset(); }
             killTimer(kVideoTickMsg);
             if (videoRecorder_ && videoRecorder_->recording()) videoRecorder_->cancel();
             closeAll();
@@ -824,6 +947,10 @@ void CaptureWindow::startVideo() {
 }
 
 void CaptureWindow::stopAndSaveVideo(bool toClipboard) {
+    if (countdownWindow_) {
+        countdownWindow_->close();
+        countdownWindow_.reset();
+    }
     killTimer(kVideoTickMsg);
     if (videoRecorder_ && videoRecorder_->recording()) {
         videoRecorder_->stop();

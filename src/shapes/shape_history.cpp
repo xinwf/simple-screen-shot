@@ -21,6 +21,9 @@ void ShapeHistory::removeUndoneTail() {
 
 ShapeBase* ShapeHistory::createShape(const std::string& toolId, float x, float y) {
     removeUndoneTail();
+    while (shapes.size() >= kMaxHistory) {
+        shapes.erase(shapes.begin());
+    }
     std::unique_ptr<ShapeBase> shape;
     if (toolId == "rect") shape = std::make_unique<ShapeRect>(host, toolId);
     else if (toolId == "ellipse") shape = std::make_unique<ShapeEllipse>(host, toolId);

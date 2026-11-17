@@ -8,6 +8,8 @@ namespace sc::shapes {
 
 class ShapeHistory {
 public:
+    static constexpr size_t kMaxHistory = 100;
+
     explicit ShapeHistory(ShapeHost* host) : host(host) {}
 
     ShapeBase* createShape(const std::string& toolId, float x, float y);

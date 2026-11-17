@@ -41,18 +41,130 @@ void settleBeforeCapture() {
 
 } // namespace
 
+class DelayCountdownOverlay : public sc::ui::BaseWindow {
+public:
+    static void start(int seconds, std::function<void()> onDone) {
+        if (instance_) {
+            instance_->close();
+            instance_.reset();
+        }
+        if (seconds <= 0) {
+            if (onDone) onDone();
+            return;
+        }
+        instance_.reset(new DelayCountdownOverlay(seconds, std::move(onDone)));
+    }
+
+    static void cancel() {
+        if (!instance_) return;
+        instance_->killTimer(100);
+        instance_->onDone_ = nullptr;
+        instance_->hide();
+        sc::core::AppContext::get()->postTask([] {
+            if (instance_) {
+                instance_->close();
+                instance_.reset();
+            }
+        });
+    }
+
+    DelayCountdownOverlay(int seconds, std::function<void()> onDone)
+        : remaining_(seconds), onDone_(std::move(onDone))
+    {
+        auto* display = sc::platform::X11Display::get();
+        auto pt = display->pointerPosition();
+        auto m = display->monitorAt(pt.x, pt.y);
+
+        float kW = 160.f, kH = 140.f;
+        float left = static_cast<float>(m.left) + (static_cast<float>(m.width()) - kW) * 0.5f;
+        float top = static_cast<float>(m.top) + (static_cast<float>(m.height()) - kH) * 0.5f;
+
+        create("DelayCountdown", core::RectF::fromXYWH(left, top, kW, kH),
+               {sc::ui::WindowFlag::Topmost, sc::ui::WindowFlag::ToolWindow, sc::ui::WindowFlag::NoActivate});
+
+        setTimer(1000, 100);
+        refresh();
+    }
+
+    void onTimer(uint32_t id) override {
+        if (id == 100) {
+            --remaining_;
+            if (remaining_ > 0) {
+                refresh();
+                setTimer(1000, 100);
+            } else {
+                killTimer(100);
+                auto done = std::move(onDone_);
+                onDone_ = nullptr;
+                hide();
+                sc::core::AppContext::get()->postTask([done = std::move(done)]() {
+                    if (instance_) {
+                        instance_->close();
+                        instance_.reset();
+                    }
+                    if (done) done();
+                });
+            }
+        }
+    }
+
+    void onPaint(gfx::CanvasContext& ctx) override {
+        ctx.clear({0.f, 0.f, 0.f, 0.f});
+        core::RectF card = core::RectF::fromXYWH(2.f * dpi, 2.f * dpi, width - 4.f * dpi, height - 4.f * dpi);
+        // Higher transparency: 0x18181880 (approx 50% opacity / 50% transparent)
+        ctx.fillRoundedRect(card, 16.f * dpi, core::ColorRgba::fromRgbaHex(0x18181880));
+        ctx.strokeRoundedRect(card, 16.f * dpi, core::ColorRgba::fromRgbaHex(0x30A46CA0), 2.f * dpi);
+
+        std::string numStr = std::to_string(remaining_);
+        gfx::TextLayout num(numStr, 48.f * dpi, 1000.f, 1000.f, "Sans Bold");
+        auto m = num.metrics();
+        ctx.drawText((width - m.width) * 0.5f,
+                     (height - m.height) * 0.5f - 14.f * dpi,
+                     num, core::ColorRgba::fromHex(0xFFFFFF));
+
+        std::string tip = fmtCountdown(remaining_);
+        gfx::TextLayout tipLayout(tip, 12.f * dpi);
+        auto tm = tipLayout.metrics();
+        ctx.drawText((width - tm.width) * 0.5f,
+                     height - tm.height - 24.f * dpi,
+                     tipLayout, core::ColorRgba::fromRgbaHex(0xFFFFFFEE));
+
+        std::string escStr = (sc::core::I18n::get()->language() == "en-US") ? "Esc / Click to cancel" : "Esc / 单击 取消";
+        gfx::TextLayout escTip(escStr, 10.f * dpi);
+        auto em = escTip.metrics();
+        ctx.drawText((width - em.width) * 0.5f,
+                     height - em.height - 8.f * dpi,
+                     escTip, core::ColorRgba::fromRgbaHex(0xFFFFFF90));
+    }
+
+    void onMouseDown(const core::PointF&, bool) override {
+        cancel();
+    }
+
+    void onKeyDown(uint32_t key) override {
+        constexpr uint32_t ESC = 0xff1b;
+        if (key == ESC) cancel();
+    }
+
+private:
+    int remaining_{3};
+    std::function<void()> onDone_;
+    static std::unique_ptr<DelayCountdownOverlay> instance_;
+};
+
+std::unique_ptr<DelayCountdownOverlay> DelayCountdownOverlay::instance_;
+
 std::unique_ptr<DelayLauncherWindow> DelayLauncherWindow::instance_;
 
 void DelayLauncherWindow::startTrayCountdown(int seconds) {
     if (seconds <= 0) { init(); return; }
     if (sc::windows::CaptureWindow::hasWindow()) return; // already capturing
-    // Silent countdown on the GTK main loop; the capture fires afterwards.
-    g_timeout_add_seconds(std::max(seconds, 1), +[](gpointer) -> int {
+    DelayCountdownOverlay::start(seconds, [] {
+        settleBeforeCapture();
         sc::core::AppContext::get()->postTask([] {
             windows::CaptureWindow::init();
         });
-        return G_SOURCE_REMOVE;
-    }, nullptr);
+    });
 }
 
 void DelayLauncherWindow::init() {
@@ -66,6 +178,7 @@ void DelayLauncherWindow::init() {
 
     if (instance_) {
         // Re-show an existing dialog: cancel countdown if any, reset seconds and restore controls.
+        DelayCountdownOverlay::cancel();
         instance_->killTimer(kCountdownTimerId);
         instance_->counting_ = false;
         instance_->remaining_ = -1;
@@ -93,7 +206,9 @@ void DelayLauncherWindow::init() {
     instance_->grabKeyboardFocus();
 }
 
-void DelayLauncherWindow::dispose() { instance_.reset(); }
+void DelayLauncherWindow::dispose() {
+    instance_.reset();
+}
 
 void DelayLauncherWindow::onCreated() {
     // Borderless managed dialog: keep it out of the taskbar / alt-tab (the app
@@ -205,16 +320,19 @@ void DelayLauncherWindow::startCapture() {
         sc::platform::x11ErrorTrapPopIgnored();
         return;
     }
-    counting_ = true;
-    remaining_ = seconds_;
-    setTimer(1000, kCountdownTimerId);
-    // Get out of the way completely: the topmost launcher must not block the
-    // apps the user is preparing while the countdown runs (same as
-    // gnome-screenshot, which closes its window and waits silently).
+    int sec = seconds_;
     hide();
+    sc::core::AppContext::get()->postTask([] { DelayLauncherWindow::dispose(); });
+    DelayCountdownOverlay::start(sec, [] {
+        settleBeforeCapture();
+        sc::core::AppContext::get()->postTask([] {
+            windows::CaptureWindow::init();
+        });
+    });
 }
 
 void DelayLauncherWindow::cancelCountdown() {
+    DelayCountdownOverlay::cancel();
     if (!counting_) return;
     killTimer(kCountdownTimerId);
     counting_ = false;

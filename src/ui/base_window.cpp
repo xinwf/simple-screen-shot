@@ -146,6 +146,8 @@ void BaseWindow::create(std::string title_, core::RectF bounds, const std::vecto
 
     gtk_widget_realize(window_);
     if (GdkWindow* gw = gtk_widget_get_window(window_)) {
+        uint32_t ts = gtk_get_current_event_time();
+        if (ts != 0) gdk_x11_window_set_user_time(gw, ts);
         gdk_window_set_override_redirect(gw, isPopup_ ? TRUE : FALSE);
         gdk_window_move_resize(gw, x, y, wInt, hInt);
         if (imContext_) gtk_im_context_set_client_window(imContext_, gw);
@@ -155,6 +157,12 @@ void BaseWindow::create(std::string title_, core::RectF bounds, const std::vecto
     if (GdkWindow* gw = gtk_widget_get_window(window_)) {
         gdk_window_move_resize(gw, x, y, wInt, hInt);
         gdk_window_raise(gw);
+        Display* dpy = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+        if (dpy) {
+            Window xw = GDK_WINDOW_XID(gw);
+            XRaiseWindow(dpy, xw);
+            XFlush(dpy);
+        }
     }
 
     if (!noActivate) {
@@ -604,7 +612,6 @@ gboolean BaseWindow::handleKeyPress(GdkEventKey* e) {
 }
 
 void BaseWindow::handleKeyRelease(GdkEventKey* e) {
-    fprintf(stderr, "[dbg] KR keyval=0x%x\n", e->keyval);
     if (e->keyval == GDK_KEY_Shift_L || e->keyval == GDK_KEY_Shift_R) shiftHeld_ = false;
 }
 
