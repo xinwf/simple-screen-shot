@@ -8,40 +8,62 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ${{ matrix.os }}
+    # 矩阵对应发布基线(双平台可编译是硬要求):
+    #  - ubuntu:20.04 容器(gcc9/cmake3.16):最老支持平台,发布 deb 在同环境构建
+    #  - ubuntu-24.04 托管 runner:与 Mint 22.3 同为 Ubuntu 24.04 (noble) 基线
+    # 注意:不要用 ubuntu-20.04/22.04 托管 runner(已被 GitHub 退役),
+    # 也不要用 ubuntu-latest(正在迁移到 26.04,不受我们支持)。
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        include:
+          - id: ubuntu20-04
+            os: ubuntu-24.04
+            container: ubuntu:20.04
+          - id: ubuntu24-04
+            os: ubuntu-24.04
+            container: ""
+
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
+      # ubuntu:20.04 容器镜像不带 git/sudo,以 root 运行,需在 checkout 前装好
+      - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          SUDO=""
+          if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
+          $SUDO apt-get update
+          $SUDO apt-get install -y --no-install-recommends \
+            git ca-certificates gzip \
             build-essential cmake pkg-config dpkg-dev \
             libgtk-3-dev libcairo2-dev libpango1.0-dev libfontconfig1-dev \
             libx11-dev libxext-dev libxtst-dev libxfixes-dev libglib2.0-dev
 
-      - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      # 容器里以 root 运行,挂载的 workspace 属于宿主 runner 用户,
+      # 先标记 safe,避免 git "dubious ownership" 报错
+      - name: Mark workspace safe (container only)
+        if: matrix.container != ''
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Build
-        run: cmake --build build -j$(nproc)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Run Tests
+      - name: Configure and build
         run: |
-          cd build
+          cmake -S . -B build-deb -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-deb -j"$(nproc)"
+
+      - name: Run tests
+        run: |
+          cd build-deb
           ctest --output-on-failure
 
-      - name: Test Debian Packaging
+      - name: Build Debian package
         run: ./build-deb.sh
 
-      - name: Upload Debian Package
+      - name: Upload Debian package
         uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-22.04'
         with:
-          name: simplescreenshot-deb
+          name: simplescreenshot-deb-${{ matrix.id }}
           path: build-deb/*.deb

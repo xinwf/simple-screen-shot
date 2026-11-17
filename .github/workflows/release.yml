@@ -1,0 +1,92 @@
+name: Release
+
+# 推送 v* tag 自动构建 deb 并发布 GitHub Release:
+#   git tag v1.0.3 && git push origin v1.0.3
+# tag 中的版本号必须与 CMakeLists.txt 的 project(... VERSION ...) 一致。
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write   # 创建 Release 需要 GITHUB_TOKEN 具备写权限
+
+jobs:
+  build-deb:
+    # 在最老支持平台 Ubuntu 20.04 容器中构建:产物链接 focal 的 glibc,
+    # 配合 -static-libgcc/-static-libstdc++,可同时运行于
+    # Ubuntu 20.04 与 Mint 22.3(Ubuntu 24.04 基线)。
+    runs-on: ubuntu-24.04
+    container: ubuntu:20.04
+    steps:
+      - name: Install toolchain
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates gzip \
+            build-essential cmake pkg-config dpkg-dev \
+            libgtk-3-dev libcairo2-dev libpango1.0-dev libfontconfig1-dev \
+            libx11-dev libxext-dev libxtst-dev libxfixes-dev libglib2.0-dev
+
+      - name: Mark workspace safe
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check tag matches project version
+        run: |
+          CMAKE_VERSION="$(sed -n 's/^project(SimpleScreenShot VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n1)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "tag=$GITHUB_REF_NAME  CMakeLists.txt VERSION=$CMAKE_VERSION"
+          if [ -z "$CMAKE_VERSION" ] || [ "$TAG_VERSION" != "$CMAKE_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME 与 CMakeLists.txt 的 VERSION($CMAKE_VERSION)不一致,请更新版本号后重新打 tag"
+            exit 1
+          fi
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build-deb -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-deb -j"$(nproc)"
+
+      - name: Run tests
+        run: |
+          cd build-deb
+          ctest --output-on-failure
+
+      - name: Build Debian package
+        run: ./build-deb.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-deb
+          path: build-deb/*.deb
+          retention-days: 3
+
+  publish:
+    needs: build-deb
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: release-deb
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # v1.2.0-rc1 / v1.2.0-beta1 之类带后缀的 tag 标记为预发布
+          PRERELEASE=""
+          case "$TAG" in
+            *-*) PRERELEASE="--prerelease" ;;
+          esac
+          TITLE="SimpleScreenShot ${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release 已存在,仅覆盖上传产物"
+            gh release upload "$TAG" --clobber ./*.deb
+          else
+            gh release create "$TAG" --title "$TITLE" --generate-notes $PRERELEASE ./*.deb
+          fi

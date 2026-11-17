@@ -13,6 +13,16 @@ simplescreenshot (1.0.3-1) unstable; urgency=medium
     click opens the menu. GNOME Shell owns no such selection and keeps
     using the AppIndicator path, where middle click captures instead.
   * About panel: show the project repository URL below the author line.
+  * Pin window: fix dragging the pinned image to another position.
+  * Pin window: draw a soft shadow around the pinned screenshot so it
+    visually stands out from the desktop content behind it.
+  * Documentation: fix config.json key names and the table of contents
+    in README; man page documents all --enter modes (long / video /
+    ocr / qr / pin) and Wayland/XWayland support; UI language is
+    Chinese / English only.
+  * prerm: use pkill -x instead of killall in the maintainer script
+    (lintian killall-is-dangerous); build is warning-free again
+    (vendored nlohmann/json headers are included as system headers).
   * Version 1.0.3.
 
  -- xinwf <xinwf18@gmail.com>  Tue, 17 Nov 2026 17:30:00 +0800

@@ -16,9 +16,10 @@
   - [5. 二维码识别](#5-二维码识别)
   - [6. 区域录屏与动图录制（MP4 / GIF）](#6-区域录屏与动图录制mp4--gif)
   - [7. 延迟截图](#7-延迟截图)
+  - [8. 多显示器与动态热插拔](#8-多显示器与动态热插拔)
 - [各个功能依赖说明](#各个功能依赖说明)
 - [桌面环境与系统托盘说明](#桌面环境与系统托盘说明)
-- [从源码编译与打包](#从源码编译与打包)
+- [从源码编译与测试](#从源码编译与测试)
 - [配置文件指南](#配置文件指南)
 - [许可](#许可)
 
@@ -33,7 +34,7 @@
 - **二维码解析**：内置轻量解码算法，零外部依赖一键复制解析文本。
 - **高清录屏**：自选区域录制 MP4（带音频）与高清 GIF（双通道全局调色板优化）。
 - **延时截屏**：托盘 3/5/10 秒快捷触发，启动器智能定位鼠标所在屏幕正中置顶。
-- **桌面兼容**：原生适配 Ubuntu 20.04/22.04/24.04（GNOME AppIndicator）与 Linux Mint/MATE/XFCE 等传统桌面。
+- **桌面兼容**：原生适配 Ubuntu 20.04/22.04/24.04（GNOME AppIndicator）与 Linux Mint/MATE/XFCE 等传统桌面；Wayland 会话经 XWayland 运行（详见[常见问题排查](#常见问题排查)）。
 
 ---
 
@@ -207,10 +208,14 @@ sudo dpkg -i build-deb/simplescreenshot_1.0.3-1_amd64.deb
 配置文件路径：`~/.config/screencapture/config.json`（若程序所在根目录存在 `config.json`，则优先以绿色便携模式加载）。
 
 配置采用原子写盘保护，支持自定义项：
-- `capShortcut`：全局截图快捷键（例如 `"Ctrl+Alt+A"`）。
-- `lang`：界面语言（支持 `"zh-CN"`、`"en-US"`）。
+- `shortcutKey.cap`：全局截图快捷键（例如 `"Ctrl+Alt+A"`）。
+- `common.language`：界面语言（支持 `"zh-CN"`、`"en-US"`）。
+- `common.autoStart`：是否开机自启动。
+- `common.saveDir`：截图默认保存目录（缺省为 `~/Pictures`）。
+- `common.waylandHintHidden`：是否隐藏启动时的 Wayland 会话提醒弹窗。
 - `ocr.plugin`：自定义 OCR Python 脚本路径。
 - `ocr.rapidocrHintHidden`：是否隐藏启动时的 RapidOCR 推荐弹窗。
+- `toolPin.*`：标注工具条各工具的记忆状态（线条粗细、开关选项等）。
 
 ---
 

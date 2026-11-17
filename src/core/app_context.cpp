@@ -16,7 +16,7 @@ void AppContext::init(int argc, char** argv) {
             } else {
                 args_[a] = "true";
                 // support "--flag value" form for non-boolean flags
-                if ((a == "--enter" || a == "--lang") && i + 1 < argc) {
+                if (a == "--enter" && i + 1 < argc) {
                     args_[a] = argv[++i];
                 }
             }

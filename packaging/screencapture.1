@@ -6,7 +6,9 @@ screencapture \- lightweight X11 screenshot tool (SimpleScreenShot)
 .RI [ options ]
 .SH DESCRIPTION
 .B screencapture
-captures screen regions on X11 desktops (GTK3 frontend). By default it
+captures screen regions on X11 desktops (GTK3 frontend, locked to the
+X11 backend; under Wayland sessions it runs through XWayland). By
+default it
 starts a system tray icon and immediately opens a full-screen capture
 overlay: drag to select a region, then annotate (arrow, rectangle,
 ellipse, line, text, mosaic, step numbering), pin the result to the
@@ -23,11 +25,11 @@ the application once the capture window is closed.
 Startup mode. Use
 .B tray
 to start minimized to the system tray without opening a capture
-overlay.
-.TP
-.BI \-\-lang\  code
-UI language override; for example
-.BR zh\-CN ", " en\-US ", " zh\-TW ", " ja\-JP ", " ru\-RU " or " id\-ID .
+overlay. Use
+.BR long ", " video ", " ocr ", " qr " or " pin
+to jump straight into the long-screenshot stitcher, screen recorder,
+OCR text recognition, QR-code scanner or pin-to-desktop tool once a
+region has been selected, instead of showing the annotation toolbox.
 .SH FILES
 .TP
 .I /usr/share/simplescreenshot/assets/
