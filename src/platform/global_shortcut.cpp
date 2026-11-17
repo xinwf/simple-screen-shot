@@ -57,6 +57,23 @@ unsigned int keycodeForName(Display* dpy, const std::string& name) {
     if (sym == NoSymbol) return 0;
     return XKeysymToKeycode(dpy, sym);
 }
+
+// BadAccess seen while the grab-error handler below is installed, plus the
+// handler that was in effect before we swapped ours in.
+int g_grabBadAccess = 0;
+int (*g_prevXErrorHandler)(Display*, XErrorEvent*) = nullptr;
+
+// Error handler for the XGrabKey window: records BadAccess (another client
+// owns the combination); anything else is forwarded to the previous handler
+// (e.g. GDK's trap) so unrelated async errors keep their original accounting
+// instead of being silently swallowed.
+int grabErrorHandler(Display* dpy, XErrorEvent* ev) {
+    if (ev->error_code == BadAccess) {
+        g_grabBadAccess = BadAccess;
+        return 0;
+    }
+    return g_prevXErrorHandler ? g_prevXErrorHandler(dpy, ev) : 0;
+}
 }
 
 GlobalShortcut* GlobalShortcut::get() { static GlobalShortcut instance; return &instance; }
@@ -88,14 +105,33 @@ bool GlobalShortcut::registerHotkey(const std::string& spec, std::function<void(
     if (!keycode) return false;
 
     Window root = DefaultRootWindow(dpy);
-    // Another instance / the WM may already own this key combination. Trap X
-    // errors so BadAccess degrades gracefully instead of terminating the app.
-    gdk_x11_display_error_trap_push(gdk_display_get_default());
+    // Another instance / the WM may already own this key combination: the
+    // resulting BadAccess is asynchronous, and the app-wide GDK error trap
+    // can never report it back (a nested pop of an outer-still-open trap
+    // always returns FALSE without syncing). Swap in a private handler
+    // instead — XSetErrorHandler returns the previous one, so whatever trap
+    // or handler is in effect is restored untouched.
+    int (*oldHandler)(Display*, XErrorEvent*) = XSetErrorHandler(grabErrorHandler);
+    g_prevXErrorHandler = oldHandler;
+    g_grabBadAccess = 0;
     for (unsigned int mask : kMaskModifiers) {
         XGrabKey(dpy, keycode, modifiers | mask, root, True, GrabModeAsync, GrabModeAsync);
     }
-    XFlush(dpy);
-    gdk_x11_display_error_trap_pop_ignored(gdk_display_get_default());
+    XSync(dpy, False);
+    const bool taken = g_grabBadAccess != 0;
+    if (taken) {
+        // Roll back the lock-mask variants that succeeded before the conflict
+        // was reported: they never enter hotkeys, so unregisterAll() could
+        // not release them — orphan passive grabs would block other clients
+        // until this process exits. Ungrabbing a key we do not own is a no-op.
+        for (unsigned int mask : kMaskModifiers) {
+            XUngrabKey(dpy, keycode, modifiers | mask, root);
+        }
+        XSync(dpy, False);
+    }
+    XSetErrorHandler(oldHandler);
+    g_prevXErrorHandler = nullptr;
+    if (taken) return false;   // combination taken: not ours
 
     nextId_++;
     hotkeys.push_back({keycode, modifiers, std::move(callback)});

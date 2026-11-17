@@ -129,7 +129,7 @@ public:
                      height - tm.height - 24.f * dpi,
                      tipLayout, core::ColorRgba::fromRgbaHex(0xFFFFFFEE));
 
-        std::string escStr = (sc::core::I18n::get()->language() == "en-US") ? "Esc / Click to cancel" : "Esc / 单击 取消";
+        std::string escStr = sc::core::I18n::get()->get("hint.escCancel");
         gfx::TextLayout escTip(escStr, 10.f * dpi);
         auto em = escTip.metrics();
         ctx.drawText((width - em.width) * 0.5f,

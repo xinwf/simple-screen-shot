@@ -20,12 +20,12 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
-#include <thread>
 
 namespace sc::windows {
 
 std::vector<std::unique_ptr<CaptureWindow>> CaptureWindow::instances_;
 bool CaptureWindow::suppressAutoQuit_ = false;
+bool CaptureWindow::videoExporting_ = false;
 
 static int64_t nowMs() {
     using namespace std::chrono;
@@ -132,7 +132,7 @@ public:
                      (height - m.height) * 0.5f - 12.f * dpi,
                      num, core::ColorRgba::fromHex(0xFFFFFF));
 
-        std::string escStr = (sc::core::I18n::get()->language() == "en-US") ? "Esc / Click Cancel" : "Esc / 单击 取消";
+        std::string escStr = sc::core::I18n::get()->get("hint.escCancel");
         gfx::TextLayout hint(escStr, 11.f * dpi);
         auto hm = hint.metrics();
         ctx.drawText((width - hm.width) * 0.5f,
@@ -352,7 +352,8 @@ void CaptureWindow::paintMagnifier(gfx::CanvasContext& ctx, const core::PointF& 
     char line1[64], line2[64], line3[64];
     std::snprintf(line1, sizeof(line1), "POS (%d, %d)", cx + monitor_.left, cy + monitor_.top);
     std::snprintf(line2, sizeof(line2), "RGB (%d,%d,%d) #%02X%02X%02X", r, g, b, r, g, b);
-    std::snprintf(line3, sizeof(line3), "Ctrl+R/H/P 复制");
+    std::snprintf(line3, sizeof(line3), "%s",
+                  sc::core::I18n::get()->get("cap.magnifierCopy").c_str());
 
     if (!magText1_ || magDpi_ != dpi) {
         magDpi_ = dpi;
@@ -991,41 +992,72 @@ void CaptureWindow::startVideo() {
 }
 
 void CaptureWindow::stopAndSaveVideo(bool toClipboard) {
+    if (videoExporting_) return;   // a second stop click while exporting
     if (countdownWindow_) {
         countdownWindow_->close();
         countdownWindow_.reset();
     }
     killTimer(kVideoTickMsg);
-    if (videoRecorder_ && videoRecorder_->recording()) {
-        videoRecorder_->stop();
+    if (!videoRecorder_) {
+        closeAll();
+        return;
     }
-    if (videoRecorder_ && videoRecorder_->outputValid()) {
-        if (toClipboard) {
-            if (videoRecorder_->isGif()) {
-                sc::platform::ClipboardService::setGif(videoRecorder_->outputPath());
-            } else {
-                sc::platform::ClipboardService::setFile(videoRecorder_->outputPath(), "video/mp4");
-            }
-        } else {
-            if (toolVideo_) toolVideo_->hide();
-            hide();
-            std::string ext = videoRecorder_->isGif() ? "gif" : "mp4";
-            auto dst = sc::platform::FileDialog::saveImage(ext);
-            if (!dst.empty()) {
-                std::error_code ec;
-                std::filesystem::copy_file(videoRecorder_->outputPath(), dst,
-                    std::filesystem::copy_options::overwrite_existing, ec);
-            }
-        }
-    } else if (videoRecorder_) {
-        // The encode failed (missing/broken ffmpeg, failed audio device, …) —
-        // never silently save an empty or stale file.
+    if (!videoRecorder_->recording()) {
+        // The encode never ran — never silently save an empty or stale file.
         if (toolVideo_) toolVideo_->hide();
         hide();
         showInfoDialog(sc::core::I18n::get()->get("about.sysTip"),
                        sc::core::I18n::get()->get("video.recordFailed"));
+        closeAll();
+        return;
     }
+
+    // Stop + GIF palette pass + audio mux can take from seconds to minutes
+    // on long captures: run them on a worker thread so the UI never freezes
+    // (same invisible-background feel as OCR). The shared_ptr keeps the
+    // recorder — and its private temp dir — alive until the completion task
+    // has consumed the output file.
+    suppressAutoQuit_ = true;
+    const bool quitWhenDone = sc::core::AppContext::get()->autoQuit();
+    std::shared_ptr<sc::media::VideoRecorder> recorder = std::move(videoRecorder_);
+    videoExporting_ = true;
+    if (toolVideo_) toolVideo_->hide();
+    setOverlaysVisible(false);
     closeAll();
+
+    auto* app = sc::core::AppContext::get();
+    app->runBackground([app, recorder, toClipboard, quitWhenDone]() {
+        recorder->stop();
+        const bool valid = recorder->outputValid();
+        app->postTask([app, recorder, toClipboard, quitWhenDone, valid]() {
+            auto* i18n = sc::core::I18n::get();
+            if (valid) {
+                if (toClipboard) {
+                    if (recorder->isGif()) {
+                        sc::platform::ClipboardService::setGif(recorder->outputPath());
+                    } else {
+                        sc::platform::ClipboardService::setFile(recorder->outputPath(), "video/mp4");
+                    }
+                } else {
+                    std::string ext = recorder->isGif() ? "gif" : "mp4";
+                    auto dst = sc::platform::FileDialog::saveImage(ext);
+                    if (!dst.empty()) {
+                        std::error_code ec;
+                        std::filesystem::copy_file(recorder->outputPath(), dst,
+                            std::filesystem::copy_options::overwrite_existing, ec);
+                    }
+                }
+            } else {
+                // The encode failed (missing/broken ffmpeg, failed audio device, …).
+                showInfoDialog(i18n->get("about.sysTip"), i18n->get("video.recordFailed"));
+            }
+            videoExporting_ = false;
+            suppressAutoQuit_ = false;
+            if (quitWhenDone) {
+                sc::core::AppContext::get()->quit(0);
+            }
+        });
+    });
 }
 
 void CaptureWindow::startOcr() {
@@ -1048,7 +1080,9 @@ void CaptureWindow::startOcr() {
     const bool quitWhenDone = sc::core::AppContext::get()->autoQuit();
     closeAll();
 
-    std::thread([img, plugin, quitWhenDone]() {
+    // Managed worker thread: quit() joins it before the process starts
+    // tearing down, so recognize()/postTask can never outlive the singletons.
+    sc::core::AppContext::get()->runBackground([img, plugin, quitWhenDone]() {
         auto text = sc::media::OcrRunner::recognize(img, plugin);
         while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) {
             text.pop_back();
@@ -1067,7 +1101,7 @@ void CaptureWindow::startOcr() {
                 sc::core::AppContext::get()->quit(0);
             }
         });
-    }).detach();
+    });
 }
 
 void CaptureWindow::startQrcode() {

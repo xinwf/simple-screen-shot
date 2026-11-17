@@ -97,6 +97,17 @@ void populateBuiltinZhCN(std::unordered_map<std::string, std::string>& m) {
         {"save.folder", "目录(F)："},
         {"save.browse", "浏览…"},
         {"save.screenshotName", "屏幕截图"},
+        {"hint.escCancel", "Esc / 单击 取消"},
+        {"cap.magnifierCopy", "Ctrl+R/H/P 复制"},
+        {"setting.reset", "重置"},
+        {"setting.dirFail", "创建目录失败: "},
+        {"setting.dirInvalid", "目标路径不是有效目录"},
+        {"setting.pathUpdated", "保存路径已更新"},
+        {"setting.hotkeyUpdated", "快捷键已更新并生效！"},
+        {"setting.hotkeyFail", "快捷键注册失败（格式错误或冲突）"},
+        {"setting.hotkeyReset", "已恢复默认快捷键 Ctrl+Alt+A"},
+        {"setting.langChangedZh", "语言已切换为中文 (简体)"},
+        {"setting.langChangedEn", "Language changed to English"},
     };
 }
 
@@ -189,6 +200,17 @@ void populateBuiltinEnUS(std::unordered_map<std::string, std::string>& m) {
         {"save.folder", "Folder: "},
         {"save.browse", "Browse…"},
         {"save.screenshotName", "Screenshot"},
+        {"hint.escCancel", "Esc / Click to cancel"},
+        {"cap.magnifierCopy", "Ctrl+R/H/P copy"},
+        {"setting.reset", "Reset"},
+        {"setting.dirFail", "Failed to create directory: "},
+        {"setting.dirInvalid", "Target path is not a valid directory"},
+        {"setting.pathUpdated", "Save path updated"},
+        {"setting.hotkeyUpdated", "Hotkey updated and active!"},
+        {"setting.hotkeyFail", "Failed to register hotkey (invalid format or already taken)"},
+        {"setting.hotkeyReset", "Default hotkey Ctrl+Alt+A restored"},
+        {"setting.langChangedZh", "Language switched to 中文 (简体)"},
+        {"setting.langChangedEn", "Language changed to English"},
     };
 }
 } // namespace

@@ -79,6 +79,44 @@ void SettingsWindow::dispose() {
     }
 }
 
+bool SettingsWindow::applyHotkey(const std::string& rawKey) {
+    std::string newKey = rawKey;
+    while (!newKey.empty() && (newKey.back() == ' ' || newKey.back() == '\t')) newKey.pop_back();
+    size_t start = newKey.find_first_not_of(" \t");
+    newKey = (start == std::string::npos) ? std::string() : newKey.substr(start);
+    if (newKey.empty()) newKey = "Ctrl+Alt+A";
+
+    auto* cfg = sc::core::ConfigManager::get();
+    auto* shortcuts = sc::platform::GlobalShortcut::get();
+    auto startCapture = []() {
+        if (!CaptureWindow::hasWindow()) CaptureWindow::init();
+    };
+    shortcuts->unregisterAll();
+    if (shortcuts->registerHotkey(newKey, startCapture)) {
+        cfg->setShortcutKey("cap", newKey);   // persists via setString -> save()
+        setStatusMsg(sc::core::I18n::get()->get("setting.hotkeyUpdated"), 0x52C41AFF);
+        return true;
+    }
+    // Restore the previous working grab so the user is never left hotkey-less.
+    shortcuts->registerHotkey(cfg->getShortcutKey("cap"), startCapture);
+    if (hotkeyBox_) hotkeyBox_->setText(cfg->getShortcutKey("cap"));
+    setStatusMsg(sc::core::I18n::get()->get("setting.hotkeyFail"), 0xFF4D4FFF);
+    return false;
+}
+
+void SettingsWindow::resetHotkey() {
+    auto* cfg = sc::core::ConfigManager::get();
+    const std::string defKey = "Ctrl+Alt+A";
+    auto* shortcuts = sc::platform::GlobalShortcut::get();
+    shortcuts->unregisterAll();
+    shortcuts->registerHotkey(defKey, []() {
+        if (!CaptureWindow::hasWindow()) CaptureWindow::init();
+    });
+    cfg->setShortcutKey("cap", defKey);
+    if (hotkeyBox_) hotkeyBox_->setText(defKey);
+    setStatusMsg(sc::core::I18n::get()->get("setting.hotkeyReset"), 0x52C41AFF);
+}
+
 sc::ui::TextBox* SettingsWindow::focusedField() const {
     if (hotkeyBox_ && hotkeyBox_->isFocused) return hotkeyBox_;
     if (dirBox_ && dirBox_->isFocused) return dirBox_;
@@ -111,11 +149,11 @@ bool SettingsWindow::applyDirChanges() {
     if (!std::filesystem::exists(dirPath)) {
         std::filesystem::create_directories(dirPath, ec);
         if (ec) {
-            setStatusMsg("创建目录失败: " + ec.message(), 0xFF4D4FFF);
+            setStatusMsg(sc::core::I18n::get()->get("setting.dirFail") + ec.message(), 0xFF4D4FFF);
             return false;
         }
     } else if (!std::filesystem::is_directory(dirPath)) {
-        setStatusMsg("目标路径不是有效目录", 0xFF4D4FFF);
+        setStatusMsg(sc::core::I18n::get()->get("setting.dirInvalid"), 0xFF4D4FFF);
         return false;
     }
     std::string norm = dirPath.string();
@@ -123,7 +161,7 @@ bool SettingsWindow::applyDirChanges() {
         cfg->setSaveDir(norm);
         cfg->save();
         dirBox_->setText(norm);
-        setStatusMsg("保存路径已更新", 0x52C41AFF);
+        setStatusMsg(sc::core::I18n::get()->get("setting.pathUpdated"), 0x52C41AFF);
     }
     return true;
 }
@@ -226,35 +264,12 @@ void SettingsWindow::rebuildUI() {
     applyHkBtn->hoverBgColor = 0x4096FFFF;
     applyHkBtn->onClick.add([this](sc::ui::Button*) {
         if (!hotkeyBox_) return;
-        auto* cfg = sc::core::ConfigManager::get();
-        std::string newKey = hotkeyBox_->getText();
-        while (!newKey.empty() && (newKey.back() == ' ' || newKey.back() == '\t')) newKey.pop_back();
-        size_t start = newKey.find_first_not_of(" \t");
-        newKey = (start == std::string::npos) ? std::string() : newKey.substr(start);
-        if (newKey.empty()) newKey = "Ctrl+Alt+A";
-
-        auto* shortcuts = sc::platform::GlobalShortcut::get();
-        shortcuts->unregisterAll();
-        bool ok = shortcuts->registerHotkey(newKey, []() {
-            if (!CaptureWindow::hasWindow()) CaptureWindow::init();
-        });
-        if (ok) {
-            cfg->setShortcutKey("cap", newKey);
-            cfg->save();
-            setStatusMsg("快捷键已更新并生效！", 0x52C41AFF);
-        } else {
-            // Restore previous
-            shortcuts->registerHotkey(cfg->getShortcutKey("cap"), []() {
-                if (!CaptureWindow::hasWindow()) CaptureWindow::init();
-            });
-            hotkeyBox_->setText(cfg->getShortcutKey("cap"));
-            setStatusMsg("快捷键注册失败（格式错误或冲突）", 0xFF4D4FFF);
-        }
+        applyHotkey(hotkeyBox_->getText());
     });
 
     // Reset hotkey button
     auto* resetHkBtn = body->makeChild<sc::ui::Button>();
-    resetHkBtn->setText("重置");
+    resetHkBtn->setText(i18n->get("setting.reset"));
     resetHkBtn->setFontSize(12.f);
     resetHkBtn->setPosition(354.f, y1);
     resetHkBtn->setSize(50.f, 28.f);
@@ -266,17 +281,7 @@ void SettingsWindow::rebuildUI() {
     resetHkBtn->setBorderRadius(4.f);
     resetHkBtn->hoverBgColor = 0xE0E0E0FF;
     resetHkBtn->onClick.add([this](sc::ui::Button*) {
-        auto* cfg = sc::core::ConfigManager::get();
-        std::string defKey = "Ctrl+Alt+A";
-        auto* shortcuts = sc::platform::GlobalShortcut::get();
-        shortcuts->unregisterAll();
-        shortcuts->registerHotkey(defKey, []() {
-            if (!CaptureWindow::hasWindow()) CaptureWindow::init();
-        });
-        cfg->setShortcutKey("cap", defKey);
-        cfg->save();
-        if (hotkeyBox_) hotkeyBox_->setText(defKey);
-        setStatusMsg("已恢复默认快捷键 Ctrl+Alt+A", 0x52C41AFF);
+        resetHotkey();
     });
 
     // Row 2: Default Save Directory
@@ -322,7 +327,7 @@ void SettingsWindow::rebuildUI() {
             cfg->setSaveDir(chosen);
             cfg->save();
             if (dirBox_) dirBox_->setText(chosen);
-            setStatusMsg("保存路径已更新", 0x52C41AFF);
+            setStatusMsg(sc::core::I18n::get()->get("setting.pathUpdated"), 0x52C41AFF);
         }
     });
 
@@ -361,7 +366,7 @@ void SettingsWindow::rebuildUI() {
         cfg->save();
         sc::core::I18n::get()->setLanguage("zh-CN");
         rebuildUI();
-        setStatusMsg("语言已切换为中文 (简体)", 0x52C41AFF);
+        setStatusMsg(sc::core::I18n::get()->get("setting.langChangedZh"), 0x52C41AFF);
     });
 
     // English button
@@ -389,7 +394,7 @@ void SettingsWindow::rebuildUI() {
         cfg->save();
         sc::core::I18n::get()->setLanguage("en-US");
         rebuildUI();
-        setStatusMsg("Language changed to English", 0x52C41AFF);
+        setStatusMsg(sc::core::I18n::get()->get("setting.langChangedEn"), 0x52C41AFF);
     });
 
     // Status Message Label
@@ -534,31 +539,7 @@ void SettingsWindow::onKeyDown(uint32_t key) {
             return;
         }
         if (hotkeyBox_ && hotkeyBox_->isFocused) {
-            // Apply current text
-            std::string newKey = hotkeyBox_->getText();
-            while (!newKey.empty() && (newKey.back() == ' ' || newKey.back() == '\t')) newKey.pop_back();
-            size_t start = newKey.find_first_not_of(" \t");
-            newKey = (start == std::string::npos) ? std::string() : newKey.substr(start);
-            if (newKey.empty()) newKey = "Ctrl+Alt+A";
-
-            auto* shortcuts = sc::platform::GlobalShortcut::get();
-            shortcuts->unregisterAll();
-            bool ok = shortcuts->registerHotkey(newKey, []() {
-                if (!CaptureWindow::hasWindow()) CaptureWindow::init();
-            });
-            if (ok) {
-                auto* cfg = sc::core::ConfigManager::get();
-                cfg->setShortcutKey("cap", newKey);
-                cfg->save();
-                setStatusMsg("快捷键已更新并生效！", 0x52C41AFF);
-            } else {
-                auto* cfg = sc::core::ConfigManager::get();
-                shortcuts->registerHotkey(cfg->getShortcutKey("cap"), []() {
-                    if (!CaptureWindow::hasWindow()) CaptureWindow::init();
-                });
-                hotkeyBox_->setText(cfg->getShortcutKey("cap"));
-                setStatusMsg("快捷键注册失败（格式错误或冲突）", 0xFF4D4FFF);
-            }
+            applyHotkey(hotkeyBox_->getText());
             return;
         }
     }

@@ -179,15 +179,15 @@ void ClipboardService::setImage(const std::shared_ptr<gfx::ImageSurface>& image)
     if (!pixbuf) return;
     int rowstride = gdk_pixbuf_get_rowstride(pixbuf);
     uint8_t* dst = gdk_pixbuf_get_pixels(pixbuf);
+    // Cairo BGRA -> GdkPixbuf RGBA (swap B and R). One 32-bit word per
+    // pixel keeps the row loop auto-vectorisable at full-screen sizes.
     for (int y = 0; y < h; ++y) {
-        const uint8_t* s = src + static_cast<size_t>(y) * stride;
-        uint8_t* d = dst + static_cast<size_t>(y) * rowstride;
+        const guint32* s = reinterpret_cast<const guint32*>(src + static_cast<size_t>(y) * stride);
+        guint32* d = reinterpret_cast<guint32*>(dst + static_cast<size_t>(y) * rowstride);
         for (int x = 0; x < w; ++x) {
-            // Cairo BGRA -> GdkPixbuf RGBA (swap B and R)
-            d[x * 4 + 0] = s[x * 4 + 2];
-            d[x * 4 + 1] = s[x * 4 + 1];
-            d[x * 4 + 2] = s[x * 4 + 0];
-            d[x * 4 + 3] = s[x * 4 + 3];
+            const guint32 v = s[x];   // B G R A packed little-endian
+            d[x] = ((v & 0x00FF0000u) >> 16) | (v & 0x0000FF00u) |
+                   ((v & 0x000000FFu) << 16) | (v & 0xFF000000u);   // R G B A
         }
     }
     GtkClipboard* cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);

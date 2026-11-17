@@ -1,8 +1,7 @@
 #pragma once
 #include "screencapture/core/types.h"
-#include <cstdio>
+#include <glib.h>
 #include <filesystem>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -16,6 +15,12 @@ namespace sc::media {
 // intermediate MP4 first, because a live palettegen filter graph yields an
 // empty file when ffmpeg is quit via the 'q' key (it does not drain the
 // filter graph on an interrupted EOF).
+//
+// All child processes are spawned with explicit argv (g_spawn), never through
+// a shell string, so device names and paths can never break out of quoting.
+// Every intermediate file lives in a private mkdtemp workDir_ (0700): fixed
+// predictable names in a shared /tmp would let other users pre-seed the
+// recorder's pid file or symlink its outputs.
 class VideoRecorder {
 public:
     VideoRecorder();
@@ -27,6 +32,8 @@ public:
     bool startMp4(const core::RectI& region, int fps = 30,
                   bool useSpeaker = true, bool useMic = false);
     bool startGif(const core::RectI& region, int fps = 16);
+    // Blocks until ffmpeg/feeder processes are reaped and the audio mux or
+    // GIF palette pass finished. Safe to call from a worker thread.
     void stop();
     // Abort recording and discard any output (no GIF conversion or audio mux).
     void cancel();
@@ -39,20 +46,21 @@ public:
 
 private:
     struct AudioFeeder {
-        FILE* pipe{nullptr};
+        GPid pid{0};         // pw-cat/parecord pid (kept by an exec-ed sh)
         std::string source;  // pulse source name (sink monitor or mic)
         std::string file;    // WAV file being written
-        std::string pidFile;
     };
 
-    bool launch(const std::string& cmd);
+    bool launchFfmpeg(const std::vector<std::string>& args);
     void finishProcess();
     bool launchAudioFeeders(bool useSpeaker, bool useMic);
     void stopAudioFeeders();
     void muxAudio();
     void convertTempToGif();
 
-    FILE* pipe_{nullptr};
+    gint stdinFd_{-1};       // ffmpeg's stdin: send "q\n" to stop cleanly
+    GPid ffmpegPid_{0};
+    std::filesystem::path workDir_;  // private 0700 scratch directory
     std::filesystem::path output_;
     bool active_{false};
     bool gifMode_{false};

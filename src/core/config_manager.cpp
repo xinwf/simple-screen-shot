@@ -1,6 +1,7 @@
 #include "screencapture/core/config_manager.h"
 #include <json/json.hpp>
 #include <fstream>
+#include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
 
@@ -74,7 +75,24 @@ void ConfigManager::save() {
         ofs.flush();
         if (!ofs.good()) return;
     }
+    // Flush the data to disk *before* the rename: without this fsync a
+    // power loss can leave a renamed-but-empty file, which reads back as
+    // "no config" and silently resets every setting.
+    int fd = ::open(tmpPath.c_str(), O_RDONLY);
+    if (fd >= 0) {
+        ::fsync(fd);
+        ::close(fd);
+    }
     std::filesystem::rename(tmpPath, configPath_, ec);
+    if (!ec) {
+        // Persist the rename itself: fsync the parent directory so a power
+        // loss cannot roll the directory entry back to the previous config.
+        int dirfd = ::open(configPath_.parent_path().c_str(), O_RDONLY | O_DIRECTORY);
+        if (dirfd >= 0) {
+            ::fsync(dirfd);
+            ::close(dirfd);
+        }
+    }
 }
 
 nlohmann::json* ConfigManager::navigate(const std::string& dottedPath, bool create) {

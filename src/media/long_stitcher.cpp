@@ -111,16 +111,17 @@ bool LongStitcher::appendFrame(const uint8_t* data, bool& reachedEnd) {
 
     if (firstCheck_) {
         changeStartY_ = -1;
+        // First row whose pixels changed vs the previous frame. Whole-row
+        // memcmp replaces the per-pixel compare (captured alpha is always
+        // 255, so comparing the A byte too cannot add false positives).
+        const int rowBytes = imgW_ * 4;
         for (int y = 0; y < imgH_; ++y) {
-            for (int x = 0; x < imgW_; ++x) {
-                size_t idx = (static_cast<size_t>(y) * imgW_ + x) * 4;
-                if (img1_[idx] != frame[idx] || img1_[idx+1] != frame[idx+1] ||
-                    img1_[idx+2] != frame[idx+2]) {
-                    changeStartY_ = y;
-                    break;
-                }
+            if (std::memcmp(img1_.data() + static_cast<size_t>(y) * rowBytes,
+                            frame.data() + static_cast<size_t>(y) * rowBytes,
+                            rowBytes) != 0) {
+                changeStartY_ = y;
+                break;
             }
-            if (changeStartY_ != -1) break;
         }
         if (changeStartY_ == -1) {
             if (++dismissTime_ > kMaxDismiss) { reachedEnd = true; return false; }

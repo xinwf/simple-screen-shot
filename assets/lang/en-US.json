@@ -13,7 +13,11 @@
     "ocrMissing": "OCR tool tesseract not found:\nInstall it with the Chinese pack:\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
     "ocrHintTitle": "OCR Engine Notice",
     "ocrHintBody": "RapidOCR is not detected. OCR will fall back to system tesseract.\n\nRapidOCR provides significantly better recognition accuracy. Recommended install:\n    pip install rapidocr[onnxruntime]\n\nSee assets/plugins/README.md for details.",
-    "dontRemind": "Do not remind again"
+    "dontRemind": "Do not remind again",
+    "magnifierCopy": "Ctrl+R/H/P copy"
+  },
+  "hint": {
+    "escCancel": "Esc / Click to cancel"
   },
   "tray": {
     "capture": "Capture",
@@ -75,7 +79,16 @@
     "about": "About",
     "autoStart": "Launch at startup:",
     "language": "Language:",
-    "getMoreLang": "get more language"
+    "getMoreLang": "get more language",
+    "reset": "Reset",
+    "dirFail": "Failed to create directory: ",
+    "dirInvalid": "Target path is not a valid directory",
+    "pathUpdated": "Save path updated",
+    "hotkeyUpdated": "Hotkey updated and active!",
+    "hotkeyFail": "Failed to register hotkey (invalid format or already taken)",
+    "hotkeyReset": "Default hotkey Ctrl+Alt+A restored",
+    "langChangedZh": "Language switched to 中文 (简体)",
+    "langChangedEn": "Language changed to English"
   },
   "about": {
     "version": "Version:",

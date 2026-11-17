@@ -13,7 +13,11 @@
     "ocrMissing": "未检测到 OCR 工具 tesseract：\n请安装 tesseract-ocr 与中文语言包：\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
     "ocrHintTitle": "OCR 引擎提示",
     "ocrHintBody": "检测到 RapidOCR 未安装，OCR 将回退到系统 tesseract。\n\nRapidOCR 的中文识别效果明显更好，推荐安装：\n    pip install rapidocr[onnxruntime]\n\n安装说明见程序目录下 assets/plugins/README.md。",
-    "dontRemind": "不再提醒"
+    "dontRemind": "不再提醒",
+    "magnifierCopy": "Ctrl+R/H/P 复制"
+  },
+  "hint": {
+    "escCancel": "Esc / 单击 取消"
   },
   "tray": {
     "capture": "截图",
@@ -75,7 +79,16 @@
     "about": "关于",
     "autoStart": "开机自启动：",
     "language": "语言：",
-    "getMoreLang": "获取更多语言"
+    "getMoreLang": "获取更多语言",
+    "reset": "重置",
+    "dirFail": "创建目录失败: ",
+    "dirInvalid": "目标路径不是有效目录",
+    "pathUpdated": "保存路径已更新",
+    "hotkeyUpdated": "快捷键已更新并生效！",
+    "hotkeyFail": "快捷键注册失败（格式错误或冲突）",
+    "hotkeyReset": "已恢复默认快捷键 Ctrl+Alt+A",
+    "langChangedZh": "语言已切换为中文 (简体)",
+    "langChangedEn": "Language changed to English"
   },
   "about": {
     "version": "版本：",

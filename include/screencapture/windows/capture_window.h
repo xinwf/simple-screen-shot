@@ -62,6 +62,9 @@ private:
 
     static std::vector<std::unique_ptr<CaptureWindow>> instances_;
     static bool suppressAutoQuit_;
+    // True while a stopped recording is being finalised on a worker thread;
+    // guards against a second stop click and keeps auto-quit waiting.
+    static bool videoExporting_;
 
     core::RectI monitor_{};
     std::shared_ptr<gfx::ImageSurface> screenImage_;

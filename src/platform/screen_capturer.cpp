@@ -26,18 +26,31 @@ std::shared_ptr<gfx::ImageSurface> ScreenCapturer::capture(int x, int y, int w, 
     uint8_t* dst = surface->data();
     const int dstStride = surface->stride();
 
-    for (int row = 0; row < h; ++row) {
-        const uint8_t* s = src + static_cast<size_t>(row) * rowstride;
-        uint8_t* d = dst + static_cast<size_t>(row) * dstStride;
-        for (int col = 0; col < w; ++col) {
-            const uint8_t* px = s + static_cast<size_t>(col) * nch;
-            // GdkPixbuf is always RGB[A] in bytes (px[0]=R, px[1]=G, px[2]=B),
-            // whereas Cairo CAIRO_FORMAT_ARGB32 on little-endian is BGRA (d[0]=B, d[1]=G, d[2]=R, d[3]=A).
-            // Force alpha = 255 so root-window visual alpha anomalies never darken desktop pixels.
-            d[col * 4 + 0] = px[2]; // Blue
-            d[col * 4 + 1] = px[1]; // Green
-            d[col * 4 + 2] = px[0]; // Red
-            d[col * 4 + 3] = 255;   // Opaque Alpha
+    // Cairo BGRA (little-endian ARGB32) vs GdkPixbuf RGB[A]. Alpha is
+    // forced to 255 so root-window visual alpha anomalies never darken
+    // desktop pixels. The 4-channel path works one 32-bit word per pixel
+    // (shifts/masks only) so the compiler auto-vectorises the row.
+    if (nch == 4) {
+        for (int row = 0; row < h; ++row) {
+            const guint32* s = reinterpret_cast<const guint32*>(src + static_cast<size_t>(row) * rowstride);
+            guint32* d = reinterpret_cast<guint32*>(dst + static_cast<size_t>(row) * dstStride);
+            for (int col = 0; col < w; ++col) {
+                const guint32 v = s[col];   // R G B A packed little-endian
+                d[col] = ((v & 0x00FF0000u) >> 16) | (v & 0x0000FF00u) |
+                         ((v & 0x000000FFu) << 16) | 0xFF000000u;   // B G R 255
+            }
+        }
+    } else {
+        for (int row = 0; row < h; ++row) {
+            const uint8_t* s = src + static_cast<size_t>(row) * rowstride;
+            uint8_t* d = dst + static_cast<size_t>(row) * dstStride;
+            for (int col = 0; col < w; ++col) {
+                const uint8_t* px = s + static_cast<size_t>(col) * nch;
+                d[col * 4 + 0] = px[2]; // Blue
+                d[col * 4 + 1] = px[1]; // Green
+                d[col * 4 + 2] = px[0]; // Red
+                d[col * 4 + 3] = 255;   // Opaque Alpha
+            }
         }
     }
     surface->markDirty();

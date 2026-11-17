@@ -70,6 +70,20 @@ add_custom_command(TARGET screencapture POST_BUILD
 )
 
 # ---------------------------------------------------------------------------
+# Unit tests for the pure-logic modules (no X11/GTK required). Run with:
+#   cmake --build build && cd build && ctest
+# ---------------------------------------------------------------------------
+enable_testing()
+add_executable(sc_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_long_stitcher.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/media/long_stitcher.cpp
+)
+target_include_directories(sc_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Keep asserts alive in Release (-U NDEBUG), otherwise the tests no-op.
+target_compile_options(sc_tests PRIVATE -Wall -Wextra -Wno-unused-parameter -UNDEBUG)
+add_test(NAME long_stitcher COMMAND sc_tests)
+
+# ---------------------------------------------------------------------------
 # Debian (.deb) packaging via CPack. Only used by `make install` / `cpack`;
 # the normal development build above is completely unaffected.
 #

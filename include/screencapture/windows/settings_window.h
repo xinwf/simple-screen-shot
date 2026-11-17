@@ -29,6 +29,11 @@ private:
     void rebuildUI();
     void setStatusMsg(const std::string& msg, uint32_t color);
     bool applyDirChanges();
+    // Shared by the apply button and the Enter key: trims the raw text,
+    // re-registers the global grab, persists it, and rolls back to the
+    // previously stored key when the combination is invalid or taken.
+    bool applyHotkey(const std::string& rawKey);
+    void resetHotkey();
     sc::ui::TextBox* focusedField() const;
     void focusField(sc::ui::TextBox* box);
 
