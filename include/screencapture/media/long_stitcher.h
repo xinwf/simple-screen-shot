@@ -26,8 +26,11 @@ public:
 
     // Pure algorithms (exposed for testing / reuse).
     static std::vector<uint8_t> toGrayscale(const uint8_t* bgra, int width, int height, int stride);
+    // outMsePerPixel (optional) receives the mean squared error per pixel of the
+    // best match, so callers can reject matches that are not a real overlap.
     static int findMostSimilarY(const uint8_t* gray1, int gray1H,
-                                const uint8_t* gray2, int gray2H, int width);
+                                const uint8_t* gray2, int gray2H, int width,
+                                double* outMsePerPixel = nullptr);
     static bool framesDiffer(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b);
     static int findScrollByBottomStrip(const uint8_t* grayOld, const uint8_t* grayNew,
                                        int width, int stripH);

@@ -3,6 +3,7 @@
 #include <gtk/gtk.h>
 #include <dlfcn.h>
 #include <filesystem>
+#include <functional>
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 namespace sc::platform {
@@ -11,20 +12,57 @@ SystemTray* SystemTray::get() { static SystemTray instance; return &instance; }
 
 namespace {
 
-struct DelayCtx {
+struct MenuActCtx {
     SystemTray* self;
-    int seconds;
+    GtkWidget* menu;   // popup menu to dismiss before the action runs
+    int seconds;       // <0: plain capture; >=0: delayed capture (0 = custom dialog)
 };
 
-void onDelayedItem(GtkMenuItem*, gpointer data) {
-    auto* ctx = static_cast<DelayCtx*>(data);
-    if (ctx && ctx->self && ctx->self->onDelayedCapture) {
-        ctx->self->onDelayedCapture(ctx->seconds);
-    }
+struct DeferredInvoke {
+    std::function<void()> fn;
+};
+
+gboolean runDeferred(gpointer data) {
+    auto* d = static_cast<DeferredInvoke*>(data);
+    if (d->fn) d->fn();
+    delete d;
+    return G_SOURCE_REMOVE;
 }
 
-void freeDelayCtx(gpointer data, GClosure*) {
-    delete static_cast<DelayCtx*>(data);
+// Close the popup menu, let the compositor repaint the area it covered, then
+// run the action. The capture overlay grabs root-window pixels immediately on
+// startup, so launching capture while the menu is still mapped records the
+// menu into the screenshot.
+void dismissMenuThen(GtkWidget* menu, std::function<void()> fn) {
+    if (menu && gtk_widget_get_mapped(menu)) {
+        gtk_menu_popdown(GTK_MENU(menu));
+        gtk_widget_hide(menu);
+    }
+    if (GdkDisplay* dpy = gdk_display_get_default()) gdk_display_flush(dpy);
+    g_timeout_add(220, runDeferred, new DeferredInvoke{std::move(fn)});
+}
+
+void onCaptureItem(GtkMenuItem*, gpointer data) {
+    auto* ctx = static_cast<MenuActCtx*>(data);
+    if (!ctx) return;
+    SystemTray* self = ctx->self;
+    dismissMenuThen(ctx->menu, [self]() {
+        if (self && self->onActivate) self->onActivate();
+    });
+}
+
+void onDelayedItem(GtkMenuItem*, gpointer data) {
+    auto* ctx = static_cast<MenuActCtx*>(data);
+    if (!ctx) return;
+    SystemTray* self = ctx->self;
+    int seconds = ctx->seconds;
+    dismissMenuThen(ctx->menu, [self, seconds]() {
+        if (self && self->onDelayedCapture) self->onDelayedCapture(seconds);
+    });
+}
+
+void freeMenuActCtx(gpointer data, GClosure*) {
+    delete static_cast<MenuActCtx*>(data);
 }
 
 // Function pointer signatures for libappindicator / libayatana-appindicator
@@ -53,9 +91,9 @@ GtkWidget* buildTrayMenu(SystemTray* self) {
     std::string capLabel = i18n->get("tray.capture");
     if (capLabel.empty() || capLabel == "tray.capture") capLabel = "截图";
     auto* capItem = gtk_menu_item_new_with_label(capLabel.c_str());
-    g_signal_connect_swapped(capItem, "activate", G_CALLBACK(+[](SystemTray* s) {
-        if (s->onActivate) s->onActivate();
-    }), self);
+    auto* capCtx = new MenuActCtx{self, menu, -1};
+    g_signal_connect_data(capItem, "activate", G_CALLBACK(onCaptureItem), capCtx,
+                          freeMenuActCtx, (GConnectFlags)0);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), capItem);
 
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
@@ -66,9 +104,9 @@ GtkWidget* buildTrayMenu(SystemTray* self) {
         if (auto pos = label.find("{n}"); pos != std::string::npos)
             label.replace(pos, 3, std::to_string(seconds));
         auto* item = gtk_menu_item_new_with_label(label.c_str());
-        auto* dctx = new DelayCtx{self, seconds};
+        auto* dctx = new MenuActCtx{self, menu, seconds};
         g_signal_connect_data(item, "activate", G_CALLBACK(onDelayedItem), dctx,
-                              freeDelayCtx, (GConnectFlags)0);
+                              freeMenuActCtx, (GConnectFlags)0);
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     };
     addDelayItem(3);
@@ -76,9 +114,9 @@ GtkWidget* buildTrayMenu(SystemTray* self) {
     addDelayItem(10);
 
     auto* custom = gtk_menu_item_new_with_label(i18n->get("tray.delayCustom").c_str());
-    auto* customCtx = new DelayCtx{self, 0}; // 0 = open custom-delay dialog
+    auto* customCtx = new MenuActCtx{self, menu, 0}; // 0 = open custom-delay dialog
     g_signal_connect_data(custom, "activate", G_CALLBACK(onDelayedItem), customCtx,
-                          freeDelayCtx, (GConnectFlags)0);
+                          freeMenuActCtx, (GConnectFlags)0);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), custom);
 
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());

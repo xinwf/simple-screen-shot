@@ -9,6 +9,12 @@ namespace {
 constexpr double kBottomMatchMinRatio = 0.9;
 constexpr double kBottomMatchMaxError = 40000;
 constexpr int kMaxSettleRecheck = 2;
+// Mean squared error per pixel (0-255 gray) above which the best offset is
+// treated as "no real overlap". Genuine overlaps of two settled frames of the
+// same page are near zero; a wrong offset on text content is far above this.
+// Rejecting such a frame avoids painting a misaligned band over the result,
+// which is what shows up as duplicated ("ghost") rows in the long screenshot.
+constexpr double kMaxMatchMse = 30.0;
 }
 
 std::vector<uint8_t> LongStitcher::toGrayscale(const uint8_t* bgra, int width, int height, int stride) {
@@ -24,7 +30,9 @@ std::vector<uint8_t> LongStitcher::toGrayscale(const uint8_t* bgra, int width, i
 }
 
 int LongStitcher::findMostSimilarY(const uint8_t* gray1, int gray1H,
-                                   const uint8_t* gray2, int gray2H, int width) {
+                                   const uint8_t* gray2, int gray2H, int width,
+                                   double* outMsePerPixel) {
+    if (outMsePerPixel) *outMsePerPixel = DBL_MAX;
     int searchH = gray1H - gray2H + 1;
     if (searchH <= 0) return 0;
     double minAvgError = DBL_MAX;
@@ -47,6 +55,7 @@ int LongStitcher::findMostSimilarY(const uint8_t* gray1, int gray1H,
             bestY = y;
         }
     }
+    if (outMsePerPixel) *outMsePerPixel = minAvgError / width;
     return bestY;
 }
 
@@ -126,10 +135,18 @@ bool LongStitcher::appendFrame(const uint8_t* data, bool& reachedEnd) {
     int img1StripH = imgH_ - changeStartY_;
     auto gray1 = toGrayscale(img1_.data() + static_cast<size_t>(changeStartY_) * rowPix,
                              imgW_, img1StripH, rowPix);
+    // Full-height grayscale of the frame below changeStartY_.
     auto gray2 = toGrayscale(frame.data() + static_cast<size_t>(changeStartY_) * rowPix,
                              imgW_, stripH, rowPix);
-    int y = findMostSimilarY(gray1.data(), img1StripH, gray2.data(), stripH, imgW_);
-    if (y == 0) {
+    double matchMse = 0.0;
+    int y = findMostSimilarY(gray1.data(), img1StripH, gray2.data(), stripH, imgW_,
+                             &matchMse);
+    // A poor best match means the frame was not captured at a trustworthy
+    // scroll offset; treat it like "no change yet" and retry with the next
+    // frame instead of appending a misaligned band.
+    const bool untrustedMatch = (y > 0 && matchMse > kMaxMatchMse);
+    if (untrustedMatch) y = 0;
+    if (y == 0 && !untrustedMatch) {
         auto gray1Bottom = toGrayscale(img1_.data() + static_cast<size_t>(imgH_ - stripH) * rowPix,
                                        imgW_, stripH, rowPix);
         auto gray2Bottom = toGrayscale(frame.data() + static_cast<size_t>(imgH_ - stripH) * rowPix,

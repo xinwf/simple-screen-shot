@@ -32,6 +32,28 @@ static int64_t nowMs() {
     return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
+// Grab `rect` and wait until the pixels stop changing (two identical snapshots
+// in a row, a few attempts max). A frame caught in the middle of a smooth
+// scroll / hover animation matches at the wrong offset in the stitcher and
+// leaves duplicated ("ghost") bands in the long screenshot.
+static bool captureSettled(const core::RectI& rect, int w, int h,
+                           std::vector<uint8_t>& out) {
+    const size_t bytes = static_cast<size_t>(w) * h * 4;
+    out.resize(bytes);
+    std::vector<uint8_t> prev;
+    constexpr int kMaxAttempts = 5;
+    for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
+        auto frame = sc::platform::ScreenCapturer::capture(rect.left, rect.top, w, h);
+        if (!frame) return false;
+        frame->flush();
+        std::memcpy(out.data(), frame->data(), bytes);
+        if (!prev.empty() && prev == out) return true;
+        prev = out;
+        if (attempt + 1 < kMaxAttempts) g_usleep(70 * 1000);
+    }
+    return true;  // 页面持续动画：沿用最后一张，由拼接器做匹配校验
+}
+
 static void showInfoDialog(const std::string& title, const std::string& message) {
     GtkWidget* dlg = gtk_message_dialog_new(
         nullptr,
@@ -782,14 +804,13 @@ void CaptureWindow::startLong() {
     refresh();
     gdk_display_sync(gdk_display_get_default());
 
-    auto first = sc::platform::ScreenCapturer::capture(rect.left, rect.top, longW_, longH_);
-    if (!first) { closeAll(); return; }
-    first->flush();
-    std::vector<uint8_t> pixels(static_cast<size_t>(longW_) * longH_ * 4);
-    std::memcpy(pixels.data(), first->data(), pixels.size());
+    std::vector<uint8_t> pixels;
+    if (!captureSettled(rect, longW_, longH_, pixels)) { closeAll(); return; }
     stitcher_ = std::make_unique<sc::media::LongStitcher>();
     stitcher_->begin(pixels.data(), longW_, longH_);
-    longResult_ = first;
+    longResult_ = std::make_shared<gfx::ImageSurface>(
+        static_cast<uint32_t>(longW_), static_cast<uint32_t>(longH_),
+        pixels.data(), static_cast<uint32_t>(longW_ * 4));
 
     toolLong_ = std::make_unique<ToolLong>();
     toolLong_->onAction = [this](const std::string& id) {
@@ -838,11 +859,8 @@ void CaptureWindow::longStep() {
     rect.right -= 2;
     rect.bottom -= 2;
 
-    auto frame = sc::platform::ScreenCapturer::capture(rect.left, rect.top, longW_, longH_);
-    if (!frame) { closeAll(); return; }
-    frame->flush();
-    std::vector<uint8_t> pixels(static_cast<size_t>(longW_) * longH_ * 4);
-    std::memcpy(pixels.data(), frame->data(), pixels.size());
+    std::vector<uint8_t> pixels;
+    if (!captureSettled(rect, longW_, longH_, pixels)) { closeAll(); return; }
     bool reachedEnd = false;
     if (stitcher_->appendFrame(pixels.data(), reachedEnd)) {
         auto result = std::make_shared<gfx::ImageSurface>(
