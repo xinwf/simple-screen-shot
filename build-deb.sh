@@ -21,11 +21,11 @@ elif [[ -n "${1:-}" ]]; then
     exit 2
 fi
 
-for dep in cmake dpkg-shlibdeps pkg-config; do
+for dep in cmake dpkg-shlibdeps pkg-config file; do
     if ! command -v "$dep" >/dev/null 2>&1; then
         echo "==> 缺少构建依赖: $dep" >&2
         echo "    Ubuntu/Debian 可执行:" >&2
-        echo "    sudo apt install build-essential cmake pkg-config dpkg-dev \\" >&2
+        echo "    sudo apt install build-essential cmake pkg-config dpkg-dev file \\" >&2
         echo "        libgtk-3-dev libcairo2-dev libpango1.0-dev libfontconfig1-dev \\" >&2
         echo "        libx11-dev libxext-dev libxtst-dev libxfixes-dev libglib2.0-dev" >&2
         exit 1
