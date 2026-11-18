@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+# The toolbar icon font (family "icon") is shipped both inside the assets
+# directory (registered per-process via FcConfigAppFontAddFile at startup)
+# and as a system font below /usr/share/fonts. The system copy is what keeps
+# Pango's view of the family stable in long-lived processes: a system-wide
+# font-environment change (package upgrade regenerating fontconfig caches,
+# fonts added by other packages) can invalidate a running process's cached
+# font state, which previously made the toolbar icons fall back to random
+# CJK/tofu glyphs. A fontconfig-visible system font survives that churn.
+#
+# Refresh the cache for our font directory so the font is usable immediately
+# (fresh installs and upgrades that replace the .ttf alike).
+if [ -d /usr/share/fonts/truetype/simplescreenshot ] && command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -f /usr/share/fonts/truetype/simplescreenshot >/dev/null 2>&1 || true
+fi
+
+exit 0

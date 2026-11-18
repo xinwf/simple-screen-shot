@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+# dpkg has just removed the package files, including the system-level icon
+# font /usr/share/fonts/truetype/simplescreenshot/iconfont.ttf. Rebuild the
+# fontconfig cache so stale entries for the removed directory disappear
+# immediately instead of lingering until the next scheduled cache update.
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -f >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

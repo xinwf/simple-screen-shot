@@ -132,6 +132,17 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo.png
 # /usr/share/pixmaps/simplescreenshot.png (above) and GTK's legacy pixmaps
 # fallback resolves the .desktop Icon=simplescreenshot to it.
 
+# Toolbar icon font as a system font. The app registers the bundled assets
+# copy per-process at startup (FontRegistry + FcConfigAppFontAddFile), but a
+# long-lived process can lose sight of that app-font registration when the
+# system font environment changes underneath it (e.g. another package
+# upgrade regenerating fontconfig caches), which renders the toolbar icons
+# as random CJK/tofu glyphs until restart. Installing the same .ttf into the
+# fontconfig-visible system tree keeps the "icon" family permanently
+# available; postinst/postrm keep the cache in step.
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/assets/iconfont.ttf
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/fonts/truetype/${APP_ID})
+
 # Debian policy doc files: copyright, compressed changelog and man page.
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/copyright
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/${APP_ID})
@@ -165,7 +176,7 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 # Debian package revision: bump whenever the packaged content changes
 # (features, icons, docs, install layout) so apt treats it as an upgrade of
 # the same upstream version instead of skipping an identical package.
-set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
+set(CPACK_DEBIAN_PACKAGE_RELEASE "2")
 set(CPACK_STRIP_FILES ON)
 # Debian-standard directory permissions (lintian: non-standard-dir-perm).
 set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
@@ -182,7 +193,10 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # external package (quirc is vendored in third_party/).
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS
     "ffmpeg, xclip, tesseract-ocr, tesseract-ocr-chi-sim, libappindicator3-1")
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/packaging/prerm")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+    "${CMAKE_CURRENT_SOURCE_DIR}/packaging/postinst;\
+${CMAKE_CURRENT_SOURCE_DIR}/packaging/prerm;\
+${CMAKE_CURRENT_SOURCE_DIR}/packaging/postrm")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_GENERATOR "DEB")
 

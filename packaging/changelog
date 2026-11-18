@@ -1,3 +1,17 @@
+simplescreenshot (1.0.3-2) unstable; urgency=medium
+
+  * Packaging: install the toolbar icon font (assets/iconfont.ttf, family
+    "icon") as a system font under /usr/share/fonts/truetype/simplescreenshot
+    and refresh the fontconfig cache in postinst/postrm. A long-running
+    instance can lose sight of the per-process app-font registration when
+    the system font environment changes under it (e.g. another package's
+    upgrade regenerating fontconfig caches), which made toolbar icons render
+    as random CJK/tofu glyphs until restart; the fontconfig-visible system
+    copy survives that churn. The bundled assets copy is still registered
+    per-process as a fallback and remains the source for development runs.
+
+ -- xinwf <xinwf18@gmail.com>  Wed, 19 Nov 2026 01:05:00 +0800
+
 simplescreenshot (1.0.3-1) unstable; urgency=medium
 
   * Long screenshot: capture a frame only once the pixels have settled
