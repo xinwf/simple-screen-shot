@@ -13,8 +13,8 @@ class ShapeText;
 class ShapeHistory;
 class SliderStyle;
 
-// Abstraction of the annotation host window (WinPin in the original project).
-// Implemented by sc::windows::PinWindow.
+// Abstraction of the annotation host window (WinPin in xland/ScreenCapture,
+// MIT License). Implemented by sc::windows::PinWindow.
 class ShapeHost {
 public:
     virtual ~ShapeHost() = default;

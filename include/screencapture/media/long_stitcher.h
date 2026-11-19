@@ -4,8 +4,9 @@
 
 namespace sc::media {
 
-// Rolling screenshot stitcher. Preserves the original toGrayscale + findMostSimilarY
-// (100px strip MSE) algorithm from CapLong.cpp verbatim.
+// Rolling screenshot stitcher. The toGrayscale + findMostSimilarY
+// (100px strip MSE) approach is based on CapLong.cpp from xland/ScreenCapture
+// (https://github.com/xland/ScreenCapture, MIT License).
 class LongStitcher {
 public:
     static constexpr int kComparisonH = 100;

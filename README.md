@@ -27,6 +27,7 @@
 - [桌面环境与系统托盘说明](#桌面环境与系统托盘说明)
 - [从源码编译与测试](#从源码编译与测试)
 - [配置文件指南](#配置文件指南)
+- [来源与致谢](#来源与致谢)
 - [许可](#许可)
 
 ---
@@ -229,7 +230,11 @@ sudo dpkg -i build-deb/simplescreenshot_1.0.3-1_amd64.deb
 
 ---
 
+## 来源与致谢
+
+本项目是 [xland/ScreenCapture](https://github.com/xland/ScreenCapture)（MIT License）的 Linux/GTK3 移植与重新实现。标注图形、滚动截图拼接、选区遮罩等模块的设计与算法参考了原项目，其版权声明与 MIT 许可文本已随本项目一并保留，详见 [LICENSE](LICENSE) 与 [packaging/copyright](packaging/copyright)。
+
 ## 许可
 
-专有软件：© 2026 xinwf <xinwf18@gmail.com>，保留所有权利。  
-详情参见 [packaging/copyright](packaging/copyright)。
+本项目采用 MIT License。© 2026 xinwf <xinwf18@gmail.com>；原项目 © 2020-2026 xland/ScreenCapture。  
+详情参见 [LICENSE](LICENSE) 与 [packaging/copyright](packaging/copyright)。

@@ -137,7 +137,7 @@ void CutMask::makeLayout() {
 
 void CutMask::paint(gfx::CanvasContext& ctx) {
     if (!hasRect()) return;
-    // Original xland/ScreenCapture CutMask uses 46% black (0x00000075), NOT 80% black.
+    // Based on xland/ScreenCapture CutMask (MIT License): 46% black (0x00000075), NOT 80% black.
     auto dim = core::ColorRgba::fromRgbaHex(0x00000075);
     if (maskRect.top > 0) ctx.fillRect({0, 0, width_, maskRect.top}, dim);
     if (maskRect.bottom < height_) ctx.fillRect({0, maskRect.bottom, width_, height_}, dim);

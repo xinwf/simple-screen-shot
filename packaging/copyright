@@ -1,30 +1,56 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: SimpleScreenShot
+Source: https://github.com/xinwf/simple-screen-shot
 
 Files: *
 Copyright: 2026 xinwf <xinwf18@gmail.com>
-License: proprietary
- This package is built from the SimpleScreenShot source tree, which does
- not yet declare an upstream license text; all rights reserved by the
- copyright holder.
+           2020-2026 xland (upstream ScreenCapture project)
+           2020-2026 ThorVG Project (verbatim from upstream LICENSE file)
+License: MIT
+ SimpleScreenShot is a Linux/GTK3 reimplementation of xland/ScreenCapture
+ (https://github.com/xland/ScreenCapture), which is distributed under the
+ MIT License. The upstream copyright notices above are retained as
+ required by that license. The "ThorVG Project" line reproduces the
+ copyright line found in the upstream ScreenCapture LICENSE verbatim;
+ it appears to be a template artifact in that repository and is not a
+ claim of authorship over this package.
 
 Files: third_party/quirc/*
 Copyright: 2010-2012 Daniel Beer <dlbeer@gmail.com>
+License: ISC
+Comment: Bundled quirc QR decoding engine.
+
+Files: third_party/cgif/*
+Copyright: cgif upstream authors
+License: MIT
+Comment: cgif is MIT-licensed upstream (https://github.com/dloebl/cgif);
+ the bundled copy carries no license header.
+
+Files: third_party/json/json.hpp
+Copyright: 2013-2019 Niels Lohmann <http://nlohmann.me>
+License: MIT
+Comment: See the MIT license text embedded in the source file.
+
 License: ISC
  Permission to use, copy, modify, and/or distribute this software for any
  purpose with or without fee is hereby granted, provided that the above
  copyright notice and this permission notice appear in all copies.
 
-Files: third_party/cgif/*
-Copyright: cgif upstream authors
 License: MIT
- cgif is MIT-licensed upstream (https://github.com/dloebl/cgif). The
- bundled copy carries no license header; see the upstream repository
- for the full MIT license text.
-
-Files: third_party/json/json.hpp
-Copyright: 2013-2019 Niels Lohmann <http://nlohmann.me>
-License: MIT
- Permission is hereby granted, free of charge, to any person obtaining a
- copy of this software to deal in the Software without restriction,
- subject to the MIT license terms included in the source file.
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
