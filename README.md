@@ -2,7 +2,9 @@
 
 轻量级 Linux X11 截图与录屏工具，采用现代 C++20 实现（GTK3 + Cairo + Pango），单进程架构、开箱即用、无庞大运行时依赖。  
 当前版本：**1.0.3**。
-
+<div align="center">
+  <img src="docs/screen_shot_promo.gif" alt="SimpleScreenShot 功能演示" width="760" />
+</div>
 ---
 
 ## 目录
