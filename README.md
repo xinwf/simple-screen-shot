@@ -4,7 +4,11 @@
 当前版本：**1.0.3**。
 <div align="center">
   <img src="docs/screen_shot_promo.gif" alt="SimpleScreenShot 功能演示" width="760" />
+  <p>
+    🎬 <a href="https://xinwf.github.io/simple-screen-shot/"><b>点击进入在线宣传动画 &amp; 交互式实机体验台</b></a>
+  </p>
 </div>
+
 ---
 
 ## 目录
