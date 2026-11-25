@@ -37,21 +37,25 @@ static int64_t nowMs() {
 // scroll / hover animation matches at the wrong offset in the stitcher and
 // leaves duplicated ("ghost") bands in the long screenshot.
 static bool captureSettled(const core::RectI& rect, int w, int h,
-                           std::vector<uint8_t>& out) {
+                           std::vector<uint8_t>& out, bool& settled) {
+    settled = false;
     const size_t bytes = static_cast<size_t>(w) * h * 4;
     out.resize(bytes);
     std::vector<uint8_t> prev;
-    constexpr int kMaxAttempts = 5;
+    constexpr int kMaxAttempts = 8;
     for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
         auto frame = sc::platform::ScreenCapturer::capture(rect.left, rect.top, w, h);
         if (!frame) return false;
         frame->flush();
         std::memcpy(out.data(), frame->data(), bytes);
-        if (!prev.empty() && prev == out) return true;
+        if (!prev.empty() && prev == out) {
+            settled = true;
+            return true;
+        }
         prev = out;
         if (attempt + 1 < kMaxAttempts) g_usleep(70 * 1000);
     }
-    return true;  // 页面持续动画：沿用最后一张，由拼接器做匹配校验
+    return true;  // 返回最后一张，由调用方决定是否重试
 }
 
 static void showInfoDialog(const std::string& title, const std::string& message) {
@@ -390,10 +394,13 @@ void CaptureWindow::onPaint(gfx::CanvasContext& ctx) {
             float pw = 180.f * dpi;
             float ph = std::min(height - 40.f,
                 pw * static_cast<float>(longResult_->height()) / std::max(1u, longResult_->width()));
-            float px = std::min(width - pw - 16.f, r.right + 16.f);
-            if (px < r.right + 8.f && r.left > pw + 24.f) {
-                px = r.left - pw - 16.f;
-            }
+            // The preview is painted by this topmost overlay. Never place it
+            // inside the capture hole, or it becomes a picture-in-picture
+            // ghost in every subsequent frame.
+            float px;
+            if (r.left >= pw + 16.f) px = r.left - pw - 16.f;
+            else if (r.right + pw + 16.f <= width) px = r.right + 16.f;
+            else return;
             float py = std::max(16.f, r.top);
             core::RectF prevRect = core::RectF::fromXYWH(px, py, pw, ph);
             ctx.fillRoundedRect(core::RectF::fromXYWH(px - 4.f, py - 4.f, pw + 8.f, ph + 8.f),
@@ -807,7 +814,8 @@ void CaptureWindow::startLong() {
     gdk_display_sync(gdk_display_get_default());
 
     std::vector<uint8_t> pixels;
-    if (!captureSettled(rect, longW_, longH_, pixels)) { closeAll(); return; }
+    bool settled = false;
+    if (!captureSettled(rect, longW_, longH_, pixels, settled)) { closeAll(); return; }
     stitcher_ = std::make_unique<sc::media::LongStitcher>();
     stitcher_->begin(pixels.data(), longW_, longH_);
     longResult_ = std::make_shared<gfx::ImageSurface>(
@@ -861,8 +869,30 @@ void CaptureWindow::longStep() {
     rect.right -= 2;
     rect.bottom -= 2;
 
+    // If the toolbar has no free space outside the selection, keep it out of
+    // the root-window grab as well. It is restored immediately afterwards.
+    const core::RectI toolRect{toolLong_ ? toolLong_->x : 0,
+                               toolLong_ ? toolLong_->y : 0,
+                               toolLong_ ? toolLong_->x + static_cast<int>(toolLong_->width) : 0,
+                               toolLong_ ? toolLong_->y + static_cast<int>(toolLong_->height) : 0};
+    bool hideToolbar = toolLong_ && toolLong_->isVisible() &&
+                       rect.left < toolRect.right && rect.right > toolRect.left &&
+                       rect.top < toolRect.bottom && rect.bottom > toolRect.top;
+    if (hideToolbar) toolLong_->hide();
+
     std::vector<uint8_t> pixels;
-    if (!captureSettled(rect, longW_, longH_, pixels)) { closeAll(); return; }
+    bool settled = false;
+    bool captured = captureSettled(rect, longW_, longH_, pixels, settled);
+    if (hideToolbar) { toolLong_->show(); toolLong_->raise(); }
+    if (!captured) { closeAll(); return; }
+    // Give smooth scrolling time to settle without advancing again. The retry
+    // is bounded so continuously animated pages can still be captured; after
+    // that the stitcher's two-anchor validation decides whether to append.
+    if (!settled && ++longUnsettledRetries_ < 3) {
+        setTimer(120, kScrollMsg);
+        return;
+    }
+    longUnsettledRetries_ = 0;
     bool reachedEnd = false;
     if (stitcher_->appendFrame(pixels.data(), reachedEnd)) {
         auto result = std::make_shared<gfx::ImageSurface>(

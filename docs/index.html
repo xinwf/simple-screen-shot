@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SimpleScreenShot v1.0.3 — 官方功能宣传推广动画 & 交互体验台</title>
+  <title>SimpleScreenShot v1.0.4 — 官方功能宣传推广动画 & 交互体验台</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,7 +93,7 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="font-bold text-base sm:text-lg tracking-tight text-white">SimpleScreenShot</span>
-            <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono-code">v1.0.3</span>
+            <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono-code">v1.0.4</span>
             <span class="hidden sm:inline-block px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">1.8 MB .deb</span>
           </div>
           <p class="text-xs text-slate-400 hidden sm:block">轻量级 Linux X11 截图与录屏工具 · 现代 C++20 (GTK3 + Cairo + Pango)</p>
@@ -351,11 +351,11 @@
         <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between gap-4">
           <div>
             <span class="text-xs font-mono-code uppercase tracking-wider text-blue-400">Build & Package (.deb)</span>
-            <h3 class="text-base font-bold text-white mt-1">一键构建与安装 SimpleScreenShot v1.0.3</h3>
+            <h3 class="text-base font-bold text-white mt-1">一键构建与安装 SimpleScreenShot v1.0.4</h3>
             <p class="text-xs text-slate-400 mt-1">源自仓库 <code class="text-slate-200">build-deb.sh</code> 与 <code class="text-slate-200">README.md</code>，支持 Ubuntu 20.04 / 22.04 / 24.04 及 Mint/MATE/XFCE。</p>
           </div>
           <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono-code text-xs text-emerald-400 overflow-x-auto leading-relaxed" id="cmdBlockBuild">./build-deb.sh
-sudo dpkg -i build-deb/simplescreenshot_1.0.3-1_amd64.deb
+sudo dpkg -i build-deb/simplescreenshot_1.0.4-1_amd64.deb
 sudo apt install ffmpeg xclip tesseract-ocr tesseract-ocr-chi-sim libappindicator3-1
 pip3 install rapidocr onnxruntime</div>
           <div class="flex justify-end">
@@ -438,7 +438,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
         code: 'CH 01',
         title: '破局登场：1.8 MB 轻量奇迹',
         shortTitle: '1.8MB 轻量登场',
-        badge: 'v1.0.3 Release',
+        badge: 'v1.0.4 Release',
         start: 0,
         end: 6,
         visualDesc: '展示官方蓝色相机图标、C++20 + GTK3 + Cairo 架构粒子汇聚，对比臃肿软件与 1.8 MB 单二进制安装包。',
@@ -546,12 +546,12 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
         code: 'CH 10',
         title: '开箱即用：立即体验 SimpleScreenShot',
         shortTitle: '构建安装与总结',
-        badge: 'SimpleScreenShot 1.0.3',
+        badge: 'SimpleScreenShot 1.0.4',
         start: 63,
         end: 68,
         visualDesc: '品牌收尾画面展示 ./build-deb.sh 打包流程、--enter 命令行直达参数与 ~/.config/screencapture/config.json 原子写盘保护。',
-        zh: '小巧纯粹，却面面俱到。SimpleScreenShot 1.0.3 —— 专为 Linux 桌面打造的高效截图与录屏利器，立即安装体验！',
-        en: 'Compact, native, and complete. SimpleScreenShot v1.0.3 — the lightweight Linux X11 screenshot & screen recording powerhouse.'
+        zh: '小巧纯粹，却面面俱到。SimpleScreenShot 1.0.4 —— 专为 Linux 桌面打造的高效截图与录屏利器，立即安装体验！',
+        en: 'Compact, native, and complete. SimpleScreenShot v1.0.4 — the lightweight Linux X11 screenshot & screen recording powerhouse.'
       }
     ];
 
@@ -998,7 +998,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
         ctx.clip();
 
         const codeLines = [
-          '// SimpleScreenShot v1.0.3 — Pure C++20 / GTK3 / Cairo / Pango / X11',
+          '// SimpleScreenShot v1.0.4 — Pure C++20 / GTK3 / Cairo / Pango / X11',
           '#include "screencapture/windows/capture_window.h"',
           '#include "screencapture/windows/tool_bars.h"',
           '#include "screencapture/media/ocr_runner.h"',
@@ -1373,7 +1373,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '800 46px Inter, "Noto Sans SC", sans-serif';
-      ctx.fillText('SimpleScreenShot  v1.0.3', W / 2, H * 0.52);
+      ctx.fillText('SimpleScreenShot  v1.0.4', W / 2, H * 0.52);
 
       ctx.fillStyle = '#93C5FD';
       ctx.font = '500 20px "Noto Sans SC", sans-serif';
@@ -1699,7 +1699,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
         ctx.fillStyle = '#0F172A';
         ctx.font = '13.5px "JetBrains Mono", "Noto Sans SC", monospace';
         const ocrLines = [
-          'SimpleScreenShot v1.0.3 — 离线 OCR 识别结果：',
+          'SimpleScreenShot v1.0.4 — 离线 OCR 识别结果：',
           '1. 推理完全在本地完成，无需联网，保护代码与文档隐私；',
           '2. 触发后立即收起截屏遮罩，后台工作线程异步执行；',
           '3. 识别文本已自动写入系统剪贴板 (ClipboardService)。'
@@ -1998,7 +1998,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '800 36px Inter, "Noto Sans SC", sans-serif';
-      ctx.fillText('SimpleScreenShot v1.0.3 — 1.8 MB 装下全套生产力', W / 2, 168);
+      ctx.fillText('SimpleScreenShot v1.0.4 — 1.8 MB 装下全套生产力', W / 2, 168);
 
       ctx.fillStyle = '#93C5FD';
       ctx.font = '500 16px "JetBrains Mono", monospace';
@@ -2014,7 +2014,7 @@ screencapture --enter pin               # 框选后直接钉在桌面置顶显�
       ctx.fillText('bash — Quick Build, Packaging & Direct Launch Modes', tx + 18, ty + 22);
 
       const termLines = [
-        { c: '#34D399', text: '$ ./build-deb.sh && sudo dpkg -i build-deb/simplescreenshot_1.0.3-1_amd64.deb' },
+        { c: '#34D399', text: '$ ./build-deb.sh && sudo dpkg -i build-deb/simplescreenshot_1.0.4-1_amd64.deb' },
         { c: '#94A3B8', text: '  -> 打包完成：1.8 MB 单包，内置 quirc 二维码引擎与 RapidOCR 插件脚本' },
         { c: '#38BDF8', text: '$ screencapture --enter long     # 框选后直达【长截图拼接】' },
         { c: '#38BDF8', text: '$ screencapture --enter video    # 框选后直达【区域录屏 MP4/GIF】' },

@@ -85,6 +85,7 @@ private:
     std::unique_ptr<sc::media::LongStitcher> stitcher_;
     std::shared_ptr<gfx::ImageSurface> longResult_;
     int longW_{0}, longH_{0};
+    int longUnsettledRetries_{0};
     static constexpr uint32_t kScrollMsg = 18;
     static constexpr uint32_t kVideoTickMsg = 20;
 

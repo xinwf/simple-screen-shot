@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SimpleScreenShot VERSION 1.0.3 LANGUAGES CXX)
+project(SimpleScreenShot VERSION 1.0.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -176,7 +176,7 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 # Debian package revision: bump whenever the packaged content changes
 # (features, icons, docs, install layout) so apt treats it as an upgrade of
 # the same upstream version instead of skipping an identical package.
-set(CPACK_DEBIAN_PACKAGE_RELEASE "2")
+set(CPACK_DEBIAN_PACKAGE_RELEASE "1")
 set(CPACK_STRIP_FILES ON)
 # Debian-standard directory permissions (lintian: non-standard-dir-perm).
 set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS

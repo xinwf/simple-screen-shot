@@ -41,10 +41,7 @@ private:
     std::vector<uint8_t> img1_;
     int imgW_{0}, imgH_{0};
     int resultH_{0};
-    int changeStartY_{-1};
-    bool firstCheck_{true};
     int dismissTime_{0};
-    int settleRecheckCount_{0};
 };
 
 } // namespace sc::media

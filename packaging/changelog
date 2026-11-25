@@ -1,3 +1,20 @@
+simplescreenshot (1.0.4-1) unstable; urgency=medium
+
+  * Long screenshot: append only newly revealed rows instead of repainting
+    the whole overlap, preventing two moments of changing content from being
+    blended into ghost bands.
+  * Long screenshot: validate both the leading overlap probe and an anchor
+    near the seam, reject matches with insufficient overlap, and recompute
+    the unchanged prefix for every settled frame.
+  * Long screenshot: retry smooth-scroll captures without advancing the
+    scroll position, while bounding retries so continuously animated pages
+    remain capturable.
+  * Long screenshot: keep the live preview and capture toolbar outside the
+    grabbed region so overlay controls no longer appear in stitched output.
+  * Documentation and packaging: update the project version to 1.0.4.
+
+ -- xinwf <xinwf18@gmail.com>  Wed, 25 Nov 2026 17:07:02 +0800
+
 simplescreenshot (1.0.3-2) unstable; urgency=medium
 
   * Packaging: install the toolbar icon font (assets/iconfont.ttf, family

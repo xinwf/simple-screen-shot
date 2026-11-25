@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 using sc::media::LongStitcher;
@@ -24,11 +25,12 @@ uint32_t pixelHash(int row, int x) {
     return static_cast<uint32_t>(t ^ (t >> 31));
 }
 
-std::vector<uint8_t> makeFrame(int w, int h, int topRow) {
+std::vector<uint8_t> makeFrame(int w, int h, int topRow, int fixedRows = 0) {
     std::vector<uint8_t> f(static_cast<size_t>(w) * h * 4);
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            const uint32_t hv = pixelHash(topRow + y, x);
+            const int pageRow = y < fixedRows ? y : topRow + y;
+            const uint32_t hv = pixelHash(pageRow, x);
             uint8_t* p = &f[(static_cast<size_t>(y) * w + x) * 4];
             p[0] = static_cast<uint8_t>(hv & 0xFF);          // B
             p[1] = static_cast<uint8_t>((hv >> 8) & 0xFF);   // G
@@ -101,6 +103,115 @@ void testUnrelatedFrameRejected() {
     assert(st.resultHeight() == h);
 }
 
+// 5) The bottom-strip fallback returns the forward scroll distance.
+void testBottomStripReturnsScrollDistance() {
+    const int w = 64, h = 100;
+    auto f0 = makeFrame(w, h, 0);
+    auto f1 = makeFrame(w, h, 10);
+    auto g0 = LongStitcher::toGrayscale(f0.data(), w, h, w * 4);
+    auto g1 = LongStitcher::toGrayscale(f1.data(), w, h, w * 4);
+    assert(LongStitcher::findScrollByBottomStrip(g0.data(), g1.data(), w, h) == 10);
+
+    // A single coincidentally equal row is not enough evidence of an overlap.
+    auto jump = makeFrame(w, h, 7000);
+    auto gj = LongStitcher::toGrayscale(jump.data(), w, h, w * 4);
+    std::memcpy(gj.data(), g0.data() + static_cast<size_t>(h - 1) * w, w);
+    assert(LongStitcher::findScrollByBottomStrip(g0.data(), gj.data(), w, h) == 0);
+}
+
+// 6) Stitching appends only newly revealed rows. Repainting the overlap with a
+//    newer frame mixes two moments of animated/changing content into one band.
+void testOverlapIsNotRepainted() {
+    LongStitcher st;
+    const int w = 64, h = 300;
+    auto f0 = makeFrame(w, h, 0);
+    auto f1 = makeFrame(w, h, 10);
+    uint8_t* changed = &f1[static_cast<size_t>(190) * w * 4];
+    changed[0] ^= 0xFF;
+    changed[1] ^= 0xFF;
+    changed[2] ^= 0xFF;
+
+    st.begin(f0.data(), w, h);
+    bool end = false;
+    assert(st.appendFrame(f1.data(), end));
+    assert(!end);
+    assert(st.resultHeight() == h + 10);
+    const uint8_t* res = st.result().data();
+    assert(std::memcmp(res + static_cast<size_t>(200) * w * 4,
+                       f0.data() + static_cast<size_t>(200) * w * 4, w * 4) == 0);
+    assert(std::memcmp(res + static_cast<size_t>(309) * w * 4,
+                       f1.data() + static_cast<size_t>(299) * w * 4, w * 4) == 0);
+}
+
+// 7) A fixed header followed by a scrolling body still appends the exact shift.
+void testFixedHeaderScroll() {
+    LongStitcher st;
+    const int w = 64, h = 300, header = 50;
+    auto f0 = makeFrame(w, h, 0, header);
+    auto f1 = makeFrame(w, h, 10, header);
+    st.begin(f0.data(), w, h);
+    bool end = false;
+    assert(st.appendFrame(f1.data(), end));
+    assert(!end);
+    assert(st.resultHeight() == h + 10);
+    assert(std::memcmp(st.result().data() + static_cast<size_t>(309) * w * 4,
+                       f1.data() + static_cast<size_t>(299) * w * 4, w * 4) == 0);
+}
+
+// 8) Multiple different scroll increments reproduce the page exactly, with
+//    no duplicated or missing rows at the accumulated seams.
+void testMultipleScrollsMatchPage() {
+    LongStitcher st;
+    const int w = 64, h = 180;
+    const int shifts[] = {7, 23, 61};
+    auto frame = makeFrame(w, h, 0);
+    st.begin(frame.data(), w, h);
+    int top = 0;
+    bool end = false;
+    for (int shift : shifts) {
+        top += shift;
+        frame = makeFrame(w, h, top);
+        assert(st.appendFrame(frame.data(), end));
+        assert(!end);
+    }
+    auto expected = makeFrame(w, h + top, 0);
+    assert(st.resultHeight() == h + top);
+    assert(st.result() == expected);
+}
+
+// 9) A false match in the top probe must be rejected by the seam anchor.
+void testFalseTopMatchRejected() {
+    LongStitcher st;
+    const int w = 64, h = 300;
+    auto f0 = makeFrame(w, h, 0);
+    auto f1 = makeFrame(w, h, 60);
+    // The first 100 rows now look like a 10-row scroll, while the rest of the
+    // frame actually moved 60 rows. Appending here would duplicate a band.
+    std::memcpy(f1.data(), f0.data() + static_cast<size_t>(10) * w * 4,
+                static_cast<size_t>(100) * w * 4);
+    st.begin(f0.data(), w, h);
+    bool end = false;
+    assert(!st.appendFrame(f1.data(), end));
+    assert(!end);
+    assert(st.resultHeight() == h);
+}
+
+// 10) Unmatched moving content is not proof that the page reached its end.
+//    Only repeated observations of the accepted frame may finish the session.
+void testRejectedFramesDoNotEndSession() {
+    LongStitcher st;
+    const int w = 64, h = 300;
+    auto f0 = makeFrame(w, h, 0);
+    st.begin(f0.data(), w, h);
+    bool end = false;
+    for (int i = 1; i <= LongStitcher::kMaxDismiss + 3; ++i) {
+        auto jump = makeFrame(w, h, 100000 + i * 1000);
+        assert(!st.appendFrame(jump.data(), end));
+        assert(!end);
+        assert(st.resultHeight() == h);
+    }
+}
+
 } // namespace
 
 int main() {
@@ -108,6 +219,12 @@ int main() {
     testIdenticalFramesEndSession();
     testScrollAppendsRevealedRows();
     testUnrelatedFrameRejected();
+    testBottomStripReturnsScrollDistance();
+    testOverlapIsNotRepainted();
+    testFixedHeaderScroll();
+    testMultipleScrollsMatchPage();
+    testFalseTopMatchRejected();
+    testRejectedFramesDoNotEndSession();
     std::printf("long_stitcher: all tests passed\n");
     return 0;
 }
