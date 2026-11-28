@@ -1,3 +1,15 @@
+simplescreenshot (1.0.5-1) unstable; urgency=medium
+
+  * OCR: fall back to tesseract when RapidOCR cannot be imported or
+    initialized, including native-library and NumPy compatibility failures.
+  * OCR: select the installed tesseract language packs, keep output UTF-8,
+    and distinguish engine failures from selections with no recognized text.
+  * OCR: display long results in a bounded scrollable dialog and render
+    arbitrary recognition text without interpreting it as GTK markup.
+  * Documentation and packaging: update the project version to 1.0.5.
+
+ -- xinwf <xinwf18@gmail.com>  Sat, 28 Nov 2026 18:35:59 +0800
+
 simplescreenshot (1.0.4-1) unstable; urgency=medium
 
   * Long screenshot: append only newly revealed rows instead of repainting
