@@ -10,6 +10,7 @@
     "pin": "钉住",
     "ocrSuccess": "文字识别成功（已复制到剪贴板）：",
     "ocrEmpty": "未识别到文字（请确认选区包含清晰文字）。",
+    "ocrFailed": "文字识别执行失败。\n请检查 OCR 引擎（Python 3、RapidOCR/onnxruntime 或 tesseract 及语言包）是否可用。",
     "ocrMissing": "未检测到 OCR 工具 tesseract：\n请安装 tesseract-ocr 与中文语言包：\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
     "ocrHintTitle": "OCR 引擎提示",
     "ocrHintBody": "检测到 RapidOCR 未安装，OCR 将回退到系统 tesseract。\n\nRapidOCR 的中文识别效果明显更好，推荐安装：\n    pip install rapidocr[onnxruntime]\n\n安装说明见程序目录下 assets/plugins/README.md。",

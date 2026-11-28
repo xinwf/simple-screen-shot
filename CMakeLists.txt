@@ -101,6 +101,24 @@ target_link_libraries(sc_core_tests PRIVATE
 )
 add_test(NAME core_tests COMMAND sc_core_tests)
 
+# OCR plugin tests need only Python's standard library. Python remains an
+# optional runtime dependency: when absent, C++ still falls back to tesseract.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME ocr_plugin
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ocr_plugin.py)
+endif()
+
+add_executable(sc_ocr_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ocr_runner.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/media/ocr_runner.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gfx/image_surface.cpp
+)
+target_include_directories(sc_ocr_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_options(sc_ocr_tests PRIVATE -Wall -Wextra -Wno-unused-parameter -UNDEBUG)
+target_link_libraries(sc_ocr_tests PRIVATE PkgConfig::GIO PkgConfig::CAIRO)
+add_test(NAME ocr_runner COMMAND sc_ocr_tests)
+
 # ---------------------------------------------------------------------------
 # Debian (.deb) packaging via CPack. Only used by `make install` / `cpack`;
 # the normal development build above is completely unaffected.
@@ -121,7 +139,9 @@ set(APP_ID "simplescreenshot")
 include(GNUInstallDirs)
 install(TARGETS screencapture RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/assets/
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${APP_ID}/assets)
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${APP_ID}/assets
+        PATTERN "__pycache__" EXCLUDE
+        PATTERN "*.pyc" EXCLUDE)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/${APP_ID}.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/assets/logo.png

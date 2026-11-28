@@ -4,12 +4,18 @@
 
 namespace sc::media {
 
+struct OcrResult {
+    std::string text;
+    bool success{false}; // false = engine could not run; empty text may still be a valid OCR result
+    std::string error;  // engine diagnostics when the process could not complete
+};
+
 class OcrRunner {
 public:
     // Saves the image to a temp PNG, runs an OCR engine, returns UTF-8 text.
     // `pluginPath` optional: if a plugin exists there it is preferred.
-    static std::string recognize(const std::shared_ptr<gfx::ImageSurface>& image,
-                                 const std::string& pluginPath = {});
+    static OcrResult recognize(const std::shared_ptr<gfx::ImageSurface>& image,
+                               const std::string& pluginPath = {});
 
     // True when an OCR engine can actually run: a plugin binary at
     // `pluginPath`, or tesseract somewhere on PATH.

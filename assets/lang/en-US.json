@@ -10,6 +10,7 @@
     "pin": "Pin",
     "ocrSuccess": "OCR succeeded (copied to clipboard):",
     "ocrEmpty": "No text recognized (make sure the selection contains clear text).",
+    "ocrFailed": "Text recognition failed to run.\nCheck that an OCR engine (Python 3, RapidOCR/onnxruntime, or tesseract with language data) is available.",
     "ocrMissing": "OCR tool tesseract not found:\nInstall it with the Chinese pack:\nsudo apt install tesseract-ocr tesseract-ocr-chi-sim",
     "ocrHintTitle": "OCR Engine Notice",
     "ocrHintBody": "RapidOCR is not detected. OCR will fall back to system tesseract.\n\nRapidOCR provides significantly better recognition accuracy. Recommended install:\n    pip install rapidocr[onnxruntime]\n\nSee assets/plugins/README.md for details.",

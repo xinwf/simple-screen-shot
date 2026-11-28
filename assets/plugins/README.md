@@ -14,6 +14,9 @@
    ```bash
    sudo apt install tesseract-ocr tesseract-ocr-chi-sim
    ```
+   同时安装中文和英文语言包时使用 `chi_sim+eng`；只安装英文时使用 `eng`，
+   只安装中文时使用 `chi_sim`。RapidOCR 导入或初始化失败（包括缺少系统动态库、
+   NumPy ABI 不兼容）也会进入该兜底流程。
 
 ## 调用协议
 
@@ -27,10 +30,14 @@ python3 ocr_rapidocr.py --image-path=<临时png> --del-image=true
 - 诊断信息一律走 stderr；
 - `--del-image=true` 时插件负责删除临时图片。
 
-另有快速探测：`python3 ocr_rapidocr.py --check`，仅测试 RapidOCR 是否可导入
-（不初始化引擎），退出码 0 = 支持、1 = 不支持。程序启动时用它检测是否需要
-弹出"回退到 tesseract"提醒（`config.json` 的 `ocr.rapidocrHintHidden` 可关闭
-该提醒）。
+另有快速探测：`python3 ocr_rapidocr.py --check`，仅测试 RapidOCR 及默认
+onnxruntime 引擎是否可导入（不初始化模型），退出码 0 = 支持、1 = 不支持。
+程序启动时用它检测是否需要弹出“回退到 tesseract”提醒（`config.json` 的
+`ocr.rapidocrHintHidden` 可关闭该提醒）。
+
+正常识别（包括未找到文字）退出码为 0；所有引擎均执行失败时退出码为 1，
+程序会显示“文字识别执行失败”，而不会误报为“未识别到文字”。识别文本始终
+按 UTF-8 输出，不依赖桌面 locale。
 
 ## 更换/自定义插件
 

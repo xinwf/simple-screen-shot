@@ -64,12 +64,55 @@ static void showInfoDialog(const std::string& title, const std::string& message)
         GTK_DIALOG_MODAL,
         GTK_MESSAGE_INFO,
         GTK_BUTTONS_OK,
-        "%s",
-        message.c_str());
+        " ");
     gtk_window_set_title(GTK_WINDOW(dlg), title.c_str());
     gtk_window_set_keep_above(GTK_WINDOW(dlg), TRUE);
     gtk_window_set_position(GTK_WINDOW(dlg), GTK_WIN_POS_CENTER);
+
+    // Use our own plain-text label. GtkMessageDialog's built-in label treats its
+    // input as Pango markup, which can hide OCR output containing <tags> or '&'.
+    GtkWidget* area = gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dlg));
+    GList* oldChildren = gtk_container_get_children(GTK_CONTAINER(area));
+    for (GList* item = oldChildren; item; item = item->next) {
+        GtkWidget* child = GTK_WIDGET(item->data);
+        gtk_container_remove(GTK_CONTAINER(area), child);
+        gtk_widget_destroy(child);
+    }
+    g_list_free(oldChildren);
+
+    GtkWidget* label = gtk_label_new(message.c_str());
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_label_set_selectable(GTK_LABEL(label), TRUE);
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
+
+    // A full-screen OCR selection can produce thousands of characters. A plain
+    // GTK message dialog grows beyond the monitor, putting its OK button out of
+    // reach. Keep long results in a bounded, scrollable area on every desktop.
+    const size_t lineCount = static_cast<size_t>(std::count(message.begin(), message.end(), '\n'));
+    if (message.size() > 2000 || lineCount > 24) {
+        GtkWidget* scroll = gtk_scrolled_window_new(nullptr, nullptr);
+        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                       GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+        GdkRectangle workArea{};
+        GdkMonitor* monitor = gdk_display_get_primary_monitor(gdk_display_get_default());
+        if (!monitor) monitor = gdk_display_get_monitor(gdk_display_get_default(), 0);
+        if (monitor) gdk_monitor_get_workarea(monitor, &workArea);
+        const int maxHeight = workArea.height > 180 ? (workArea.height - 180) * 3 / 5 : 120;
+        const int maxWidth = workArea.width > 80 ? (workArea.width - 80) * 3 / 5 : 240;
+        gtk_label_set_width_chars(GTK_LABEL(label), std::clamp(maxWidth / 8, 20, 72));
+        gtk_widget_set_size_request(scroll, std::min(720, std::max(240, maxWidth)),
+                                   std::min(600, std::max(120, maxHeight)));
+        gtk_container_add(GTK_CONTAINER(scroll), label);
+        gtk_box_pack_start(GTK_BOX(area), scroll, TRUE, TRUE, 0);
+    } else {
+        gtk_label_set_max_width_chars(GTK_LABEL(label), 90);
+        gtk_box_pack_start(GTK_BOX(area), label, TRUE, TRUE, 0);
+    }
+
+    gtk_widget_show_all(dlg);
     gtk_dialog_run(GTK_DIALOG(dlg));
+    gtk_widget_hide(dlg);
     gtk_widget_destroy(dlg);
 }
 
@@ -1114,13 +1157,19 @@ void CaptureWindow::startOcr() {
     // Managed worker thread: quit() joins it before the process starts
     // tearing down, so recognize()/postTask can never outlive the singletons.
     sc::core::AppContext::get()->runBackground([img, plugin, quitWhenDone]() {
-        auto text = sc::media::OcrRunner::recognize(img, plugin);
+        auto result = sc::media::OcrRunner::recognize(img, plugin);
+        auto text = std::move(result.text);
         while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) {
             text.pop_back();
         }
-        sc::core::AppContext::get()->postTask([text, quitWhenDone]() {
+        sc::core::AppContext::get()->postTask([text, success = result.success,
+                                               error = std::move(result.error), quitWhenDone]() {
             auto* i18n = sc::core::I18n::get();
-            if (!text.empty()) {
+            if (!success) {
+                std::string message = i18n->get("cap.ocrFailed");
+                if (!error.empty()) message += "\n\n" + error.substr(0, 800);
+                showInfoDialog(i18n->get("cap.ocr"), message);
+            } else if (!text.empty()) {
                 sc::platform::ClipboardService::setText(text);
                 showInfoDialog(i18n->get("cap.ocr"),
                                i18n->get("cap.ocrSuccess") + "\n\n" + text);
